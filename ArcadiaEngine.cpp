@@ -180,12 +180,27 @@ int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& it
     return 0;
 }
 
+///string decoding
 long long InventorySystem::countStringPossibilities(string s) {
-    // TODO: Implement string decoding DP
-    // Rules: "uu" can be decoded as "w" or "uu"
-    //        "nn" can be decoded as "m" or "nn"
-    // Count total possible decodings
-    return 0;
+    ///This is a large prime number to avoid integer overflow.
+    const int MOD = 1e9 + 7;
+    int n = s.size();
+    vector<long long> dp(n + 1, 0);
+    dp[0] = 1;  // empty string
+
+    for (int i = 1; i <= n; i++) {
+        /// Single character
+        dp[i] = dp[i - 1] % MOD;
+
+        /// Check two-character substitution
+        if (i >= 2) {
+            string pair = s.substr(i - 2, 2);
+            if (pair == "uu" || pair == "nn") {
+                dp[i] = (dp[i] + dp[i - 2]) % MOD;
+            }
+        }
+    }
+    return dp[n];
 }
 
 // =========================================================
