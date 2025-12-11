@@ -24,37 +24,46 @@ using namespace std;
 class ConcretePlayerTable : public PlayerTable {
 private:
     struct Player {
-        int key;
-        string value;
+        int key; //shirt number
+        string value; //name
         bool used;
         Player() : key(-1), used(false) {}
     };
 
     vector<Player> table;
 
-    ///Mid-Square Hash Function
+    ///Mid-Square Hash Function (r = 2)
     int midSquare(int key) {
-        long sq = 1L * key * key;
+        int sq = key * key;
         string s = to_string(sq);
         int n = s.size();
 
-        /// Extract the middle 2 digits
         int mid = n / 2;
-        int start = max(0, mid - 1);
-        int len = (n >= 2 ? 2 : 1);
-        int midDigits = stoi(s.substr(start, len));
+        int start, len;
 
-        return midDigits % 11;     // hash index
+        if (n % 2 == 0) {
+            /// Even length → take 2 middle digits
+            start = mid - 1;
+            len = 2;
+        } else {
+            /// Odd length → take 3 middle digits
+            start = max(0, mid - 1);
+            len = 3;
+        }
+
+        /// Extract substring and convert to integer
+        int midDigits = stoi(s.substr(start, len));
+        return midDigits % 101;     // hash index
     }
 
     /// Second hash for double hashing
     int hash2(int key) {
-        return 7 - (key % 7);
+        return 97 - (key % 97); //first prime < 101
     }
 
 public:
     ConcretePlayerTable() {
-        table.resize(11);
+        table.resize(101);
     }
 
     /// INSERT using Double Hashing
@@ -62,8 +71,8 @@ public:
         int h1 = midSquare(playerID);
         int h2 = hash2(playerID);
 
-        for (int i = 0; i < 11; i++) {
-            int index = (h1 + i * h2) % 11;
+        for (int i = 0; i < 101; i++) {
+            int index = (h1 + i * h2) % 101;
 
             if (!table[index].used) {
                 table[index].key = playerID;
@@ -80,8 +89,8 @@ public:
         int h1 = midSquare(playerID);
         int h2 = hash2(playerID);
 
-        for (int i = 0; i < 11; i++) {
-            int index = (h1 + i * h2) % 11;
+        for (int i = 0; i < 101; i++) {
+            int index = (h1 + i * h2) % 101;
 
             if (!table[index].used)
                 return "";  //key not found
@@ -100,7 +109,7 @@ public:
         cout << "Index\tPlayerID\tName\n";
         cout << "----------------------------------------\n";
 
-        for (int i = 0; i < 11; i++) {
+        for (int i = 0; i < 101; i++) {
             if (table[i].used) {
                 cout << i << "\t" << table[i].key
                      << "\t\t" << table[i].value << endl;
@@ -180,14 +189,15 @@ int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& it
     return 0;
 }
 
-///string decoding
-long long InventorySystem::countStringPossibilities(string s) {
+///string decoding(DP)
+long long InventorySystem::countStringPossibilities(string s)   {
     ///This is a large prime number to avoid integer overflow.
     const int MOD = 1e9 + 7;
     int n = s.size();
     vector<long long> dp(n + 1, 0);
     dp[0] = 1;  // empty string
 
+    ///it counts all valid sequences of s where "uu" and "nn" can optionally merge.
     for (int i = 1; i <= n; i++) {
         /// Single character
         dp[i] = dp[i - 1] % MOD;
@@ -213,13 +223,60 @@ bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, i
     return false;
 }
 
+///MST with Prim's
 long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long long silverRate,
                                        vector<vector<int>>& roadData) {
-    // TODO: Implement Minimum Spanning Tree (Kruskal's or Prim's)
-    // roadData[i] = {u, v, goldCost, silverCost}
-    // Total cost = goldCost * goldRate + silverCost * silverRate
-    // Return -1 if graph cannot be fully connected
-    return -1;
+    /// Build adjacency list
+    /// adj is a vector of vectors,
+    /// used to store the adjacency list of the graph.
+    /// Example:
+    ///    If adj[0] = {{1,10}, {2,20}},
+    ///    it means city 0 is connected to city 1 with cost 10, and city 2 with cost 20.
+    vector<vector<pair<int,long long>>> adj(n);
+    for(int i = 0 ; i < m ; i++){
+        int u = roadData[i][0], v = roadData[i][1];
+        long long c = roadData[i][2]*goldRate + roadData[i][3]*silverRate;
+
+        ///Since the roads are undirected, the connection works both ways.
+        adj[u].push_back({v,c});
+        adj[v].push_back({u,c});
+    }
+
+    /// Prim's algorithm
+    vector<bool> visited(n,false);
+
+    ///Each element is a pair {cost, node}:
+    ///    first = cost of reaching node from the MST
+    ///    second = node itself
+    ///greater<pair<...>> → makes it a min-heap, so the smallest cost edge is always on top.
+    priority_queue<pair<long long,int>, vector<pair<long long,int>>, greater<pair<long long,int>>> pq;
+
+    pq.push({0,0}); // {cost, node}
+    long long totalCost = 0;
+    int visitedCount = 0;
+
+    /// The loop picks the minimum-cost edge from the priority queue connecting the MST to an unvisited node.
+    /// If the node has already been visited, the edge is skipped
+    /// Otherwise, the node with it's cost is added to the MST, and all edges from this new node are candidate edges for the next iterations.
+    while(!pq.empty() && visitedCount < n){
+        auto [c,u] = pq.top();
+        pq.pop();
+
+        if(visited[u]) continue;
+
+        visited[u] = true;
+        totalCost += c;
+        visitedCount++;
+
+        for(auto &[v,w]: adj[u]){
+            if(!visited[v]){
+                pq.push({w,v});
+            }
+        }
+    }
+
+    if(visitedCount != n) return -1;
+    return totalCost;
 }
 
 string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) {
