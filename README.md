@@ -1,9 +1,9 @@
 - Student 1 name: Bassnt Tarek
 - Student 1 ID: 20231037
 - Student 1 Work:
-    Part A1. Player Lookup (Hashing)
-    Part B3. Chat Autocorrect (String DP)
-    Part C2. The Bribe (Min Cost Path/MST variant)
+    - Part A1. Player Lookup (Hashing)
+    - Part B3. Chat Autocorrect (String DP)
+    - Part C2. The Bribe (Min Cost Path/MST variant)
 # --------------------------------
 
 - Student 2 name: Rahma Bahgat
