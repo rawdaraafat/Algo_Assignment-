@@ -291,7 +291,18 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
 // PART D: SERVER KERNEL (Greedy)
 // =========================================================
 
+
+// A,A,B   n=2
+//A,B,IDLE,A
+//4
+
+// A,A,A,B,B,C   n=3
+//A,B,C,IDLE,A,B,IDLE,IDLE,A
+//9
+
+
 int ServerKernel::minIntervals(vector<char>& tasks, int n) {
+    // A,A,A,B,B,B,C   n=0
     // If cooling time is 0, we can execute all tasks consecutively
     if (n == 0) return tasks.size();
 
@@ -299,9 +310,11 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
     // We use an array of size 26 since tasks are uppercase English letters
     vector<int> freq(26, 0);
 
+
     // Count occurrences of each task
     for (char task : tasks) {
         freq[task - 'A']++;  // Convert char to index (0-25)
+        // freq[3,3,1]
     }
 
     // Step 2: Find the maximum frequency (most frequent task)
@@ -324,14 +337,22 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
     // - max_freq - 1: Number of gaps between occurrences of most frequent task
     // - n + 1: Each gap can hold n other tasks/idles + 1 for the task itself
     // - count_max_freq: Add the last occurrence of each max-frequency task
-    int calculated_intervals = (max_freq - 1) * (n + 1) + count_max_freq;
 
+    // EXPLAIN THE RULE MATHEMATICALLY
+    // A,A,A,B,B,C   n=3
+    //A,B,C,IDLE,A,B,IDLE,IDLE,A
+    //9
+    int calculated_intervals = (max_freq - 1) * (n + 1) + count_max_freq;
+    //                          (   3    - 1) * (3 + 1)  +   1            = 9
     // Step 5: Return the maximum of calculated value and total tasks
     // We need to consider cases where we have many tasks and small n
     // Example: tasks={'A','B','C'}, n=2 → calculated=3, tasks.size()=3
     // So we take the maximum to ensure we schedule all tasks
     return max(calculated_intervals, (int)tasks.size());
+    // A,B,C,D,E,F     n=3
+
 }
+
 
 // =========================================================
 // FACTORY FUNCTIONS (Required for Testing)
