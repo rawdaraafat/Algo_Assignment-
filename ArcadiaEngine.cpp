@@ -331,6 +331,7 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
         }
     }
 
+
     // Step 4: Calculate minimum intervals using the scheduling formula
     // Formula explanation:
     // (max_freq - 1) * (n + 1) + count_max_freq
