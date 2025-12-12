@@ -175,11 +175,36 @@ public:
 // PART B: INVENTORY SYSTEM (Dynamic Programming)
 // =========================================================
 
+// === Partition (Minimize difference) ===
 int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
-    // TODO: Implement partition problem using DP
-    // Goal: Minimize |sum(subset1) - sum(subset2)|
-    // Hint: Use subset sum DP to find closest sum to total/2
-    return 0;
+    // Edge cases
+    if (n <= 0 || coins.empty()) return 0;
+
+    long long total = 0;
+    for (int v : coins) total += v;
+
+    long long half = total / 2;
+
+    // dp[j] = true if sum j is achievable
+    vector<char> dp(half + 1, 0);
+    dp[0] = 1;
+
+    for (int val : coins) {
+        // iterate backwards to keep 0/1 property
+        for (long long j = half; j >= val; --j) {
+            if (dp[j - val]) dp[j] = 1;
+        }
+    }
+
+    // find best achievable sum <= half
+    long long best = 0;
+    for (long long j = half; j >= 0; --j) {
+        if (dp[j]) { best = j; break; }
+    }
+
+    long long other = total - best;
+    long long diff = llabs(other - best);
+    return (int)diff;
 }
 
 int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& items) {
@@ -217,9 +242,39 @@ long long InventorySystem::countStringPossibilities(string s)   {
 // PART C: WORLD NAVIGATOR (Graphs)
 // =========================================================
 
+// === Path existence (undirected) ===
 bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, int dest) {
-    // TODO: Implement path existence check using BFS or DFS
-    // edges are bidirectional
+    // Validate nodes
+    if (n <= 0) return false;
+    if (source < 0 || source >= n || dest < 0 || dest >= n) return false;
+    if (source == dest) return true;
+
+    vector<vector<int>> adj(n);
+    for (auto &e : edges) {
+        if (e.size() >= 2) {
+            int u = e[0], v = e[1];
+            if (u >= 0 && u < n && v >= 0 && v < n) {
+                adj[u].push_back(v);
+                adj[v].push_back(u);
+            }
+        }
+    }
+
+    vector<char> seen(n, 0);
+    queue<int> q;
+    q.push(source);
+    seen[source] = 1;
+
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (int v : adj[u]) {
+            if (!seen[v]) {
+                if (v == dest) return true;
+                seen[v] = 1;
+                q.push(v);
+            }
+        }
+    }
     return false;
 }
 
@@ -279,12 +334,60 @@ long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long lo
     return totalCost;
 }
 
+// === All-Pairs Shortest Path (Floyd–Warshall) + sum -> binary ===
 string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) {
-    // TODO: Implement All-Pairs Shortest Path (Floyd-Warshall)
-    // Sum all shortest distances between unique pairs (i < j)
-    // Return the sum as a binary string
-    // Hint: Handle large numbers carefully
-    return "0";
+    if (n <= 0) return string("0");
+
+    const long long INF = (1LL<<60);
+    // Use long long matrix
+    vector<vector<long long>> dist(n, vector<long long>(n, INF));
+
+    for (int i = 0; i < n; ++i) dist[i][i] = 0;
+
+    // roads entries: {u, v, length}
+    for (auto &r : roads) {
+        if (r.size() < 3) continue;
+        int u = r[0], v = r[1];
+        long long w = r[2];
+        if (u < 0 || u >= n || v < 0 || v >= n) continue;
+        // If multiple edges exist, keep the smallest length
+        dist[u][v] = min(dist[u][v], w);
+        dist[v][u] = min(dist[v][u], w);
+    }
+
+    // Floyd-Warshall
+    for (int k = 0; k < n; ++k) {
+        for (int i = 0; i < n; ++i) {
+            if (dist[i][k] == INF) continue;
+            for (int j = 0; j < n; ++j) {
+                if (dist[k][j] == INF) continue;
+                long long nd = dist[i][k] + dist[k][j];
+                if (nd < dist[i][j]) dist[i][j] = nd;
+            }
+        }
+    }
+
+    // Sum distances for unique pairs i < j, ignoring unreachable (INF)
+    __int128 total = 0; // use wider integer to avoid overflow in intermediate sum
+    for (int i = 0; i < n; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            if (dist[i][j] != INF) total += dist[i][j];
+            // If disconnected, the problem expects we skip those pairs (as in examples).
+        }
+    }
+
+    // Convert total to binary string
+    if (total == 0) return string("0");
+
+    // Convert __int128 to binary
+    string bits;
+    __int128 t = total;
+    while (t > 0) {
+        bits.push_back( (t & 1) ? '1' : '0' );
+        t >>= 1;
+    }
+    reverse(bits.begin(), bits.end());
+    return bits;
 }
 
 // =========================================================
@@ -372,3 +475,21 @@ extern "C" {
         return new ConcreteAuctionTree(); 
     }
 }
+
+// int main() {
+//     // ==== Test Path Existence ====
+//     vector<vector<int>> edges = {};
+//     cout << "Path from 0 to 1: " << (WorldNavigator::pathExists(1, edges, 0, 0) ? "YES" : "NO") << endl;
+//
+//     // ==== Test Partition (Optimize Loot Split) ====
+//     vector<int> coins = {1,2,4};
+//     cout << "Min loot difference: " << InventorySystem::optimizeLootSplit(coins.size(), coins) << endl;
+//
+//     // ==== Test All-Pairs Shortest Path Sum (Binary) ====
+//     vector<vector<int>> roads = {
+//         {{0,1,1}, {1,2,2}}
+//     };
+//     cout << "APSP Sum (Binary): " << WorldNavigator::sumMinDistancesBinary(3, roads) << endl;
+//
+//     return 0;
+// }
