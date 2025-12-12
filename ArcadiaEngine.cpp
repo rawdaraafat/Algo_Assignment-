@@ -292,11 +292,45 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
 // =========================================================
 
 int ServerKernel::minIntervals(vector<char>& tasks, int n) {
-    // TODO: Implement task scheduler with cooling time
-    // Same task must wait 'n' intervals before running again
-    // Return minimum total intervals needed (including idle time)
-    // Hint: Use greedy approach with frequency counting
-    return 0;
+    // If cooling time is 0, we can execute all tasks consecutively
+    if (n == 0) return tasks.size();
+
+    // Step 1: Count frequency of each task (A-Z)
+    // We use an array of size 26 since tasks are uppercase English letters
+    vector<int> freq(26, 0);
+
+    // Count occurrences of each task
+    for (char task : tasks) {
+        freq[task - 'A']++;  // Convert char to index (0-25)
+    }
+
+    // Step 2: Find the maximum frequency (most frequent task)
+    int max_freq = 0;
+    for (int count : freq) {
+        max_freq = max(max_freq, count);
+    }
+
+    // Step 3: Count how many tasks have this maximum frequency
+    int count_max_freq = 0;
+    for (int count : freq) {
+        if (count == max_freq) {
+            count_max_freq++;
+        }
+    }
+
+    // Step 4: Calculate minimum intervals using the scheduling formula
+    // Formula explanation:
+    // (max_freq - 1) * (n + 1) + count_max_freq
+    // - max_freq - 1: Number of gaps between occurrences of most frequent task
+    // - n + 1: Each gap can hold n other tasks/idles + 1 for the task itself
+    // - count_max_freq: Add the last occurrence of each max-frequency task
+    int calculated_intervals = (max_freq - 1) * (n + 1) + count_max_freq;
+
+    // Step 5: Return the maximum of calculated value and total tasks
+    // We need to consider cases where we have many tasks and small n
+    // Example: tasks={'A','B','C'}, n=2 → calculated=3, tasks.size()=3
+    // So we take the maximum to ensure we schedule all tasks
+    return max(calculated_intervals, (int)tasks.size());
 }
 
 // =========================================================
