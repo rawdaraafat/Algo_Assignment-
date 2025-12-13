@@ -176,35 +176,86 @@ public:
 // =========================================================
 
 // === Partition (Minimize difference) ===
+// Problem: divide coins into two groups such that the sum difference is minimized
+// Example:
+// coins = {1, 11, 5, 6}
+// Total sum = 1+11+5+6 = 23
+// Goal: split into groups with sums as close as possible
+// Closest split: {11,6} sum=17, {1,5} sum=6  → diff = 17-6 = 11? Actually let's trace carefully below
+
 int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
-    // Edge cases
+
+    // Edge case: no coins → difference is 0
     if (n <= 0 || coins.empty()) return 0;
 
+    // Compute total sum of coins
     long long total = 0;
     for (int v : coins) total += v;
+    // Example: total = 1+11+5+6 = 23
 
-    long long half = total / 2;
+    // We want to get as close as possible to half of total
+    long long half = total / 2; // 23/2 = 11 (integer division)
 
-    // dp[j] = true if sum j is achievable
+    // dp[j] = 1 if it's possible to make sum j using some coins
     vector<char> dp(half + 1, 0);
-    dp[0] = 1;
+    dp[0] = 1; // sum 0 is always possible (take no coins)
 
+    // =========================
+    // Fill dp table
+    // =========================
     for (int val : coins) {
-        // iterate backwards to keep 0/1 property
+        // We iterate backwards to ensure we use each coin at most once
         for (long long j = half; j >= val; --j) {
+            // If sum (j-val) was achievable, then sum j is also achievable by adding val
             if (dp[j - val]) dp[j] = 1;
+
+            /*
+                Example tracing with coins = {1, 11, 5, 6}:
+
+                Step 1: val = 1
+                dp[1] = dp[1-1] = dp[0] = 1 → sum 1 is possible
+                dp = [1,1,0,0,0,...,11]
+
+                Step 2: val = 11
+                Since half=11, j only = 11
+                dp[11] = dp[11-11]=dp[0]=1 → sum 11 is possible
+
+                Step 3: val = 5
+                j=11: dp[11] |= dp[6] (currently 0) → no change
+                j=10: dp[10] |= dp[5] (0) → no change
+                j=5: dp[5] |= dp[0]=1 → dp[5]=1
+                Now achievable sums <=11: 0,1,5,11
+
+                Step 4: val=6
+                j=11: dp[11] |= dp[5]=1 → dp[11]=1 (already 1)
+                j=10: dp[10] |= dp[4]=0 → no change
+                j=6: dp[6] |= dp[0]=1 → dp[6]=1
+
+                Final achievable sums <=11: 0,1,5,6,11
+            */
         }
     }
 
-    // find best achievable sum <= half
+    // =========================
+    // Find the best achievable sum ≤ half
+    // =========================
     long long best = 0;
     for (long long j = half; j >= 0; --j) {
         if (dp[j]) { best = j; break; }
+        /*
+            For the example:
+            dp[11]=1 → best=11
+            So one group can sum to 11
+        */
     }
 
-    long long other = total - best;
-    long long diff = llabs(other - best);
-    return (int)diff;
+    // The other group will have the remaining coins
+    long long other = total - best; // 23-11=12
+
+    // Absolute difference between the two groups
+    long long diff = llabs(other - best); // |12-11|=1
+
+    return (int)diff; // returns 1
 }
 
 int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& items) {
@@ -242,39 +293,128 @@ long long InventorySystem::countStringPossibilities(string s)   {
 // PART C: WORLD NAVIGATOR (Graphs)
 // =========================================================
 
-// === Path existence (undirected) ===
+// === Path existence (undirected graph) ===
+// This function checks:
+// "Is there ANY path from source to dest?"
+//
+// Example:
+// n = 5
+// edges = {{0,1}, {1,2}, {3,4}}
+// source = 0, dest = 2
+//
+// Graph:
+// 0 -- 1 -- 2      3 -- 4
+//
+// Expected answer: true
+
 bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, int dest) {
-    // Validate nodes
+
+    // =========================
+    // Basic validation
+    // =========================
+
+    // No nodes → no path
     if (n <= 0) return false;
-    if (source < 0 || source >= n || dest < 0 || dest >= n) return false;
+
+    // Invalid source or destination
+    if (source < 0 || source >= n || dest < 0 || dest >= n)
+        return false;
+
+    // Same node → path exists trivially
+    // Example: source=2, dest=2
     if (source == dest) return true;
 
+    // =========================
+    // Build adjacency list
+    // =========================
+    // adj[i] will store all nodes connected to i
     vector<vector<int>> adj(n);
+
     for (auto &e : edges) {
         if (e.size() >= 2) {
             int u = e[0], v = e[1];
+
+            // Ignore invalid edges
             if (u >= 0 && u < n && v >= 0 && v < n) {
+                // Undirected graph → add both directions
                 adj[u].push_back(v);
                 adj[v].push_back(u);
             }
         }
     }
 
+    /*
+        After building adj for the example:
+
+        adj[0] = {1}
+        adj[1] = {0, 2}
+        adj[2] = {1}
+        adj[3] = {4}
+        adj[4] = {3}
+    */
+
+    // =========================
+    // BFS setup
+    // =========================
+
+    // seen[i] = 1 means "we already visited node i"
     vector<char> seen(n, 0);
+
+    // Queue for BFS
     queue<int> q;
+
+    // Start BFS from source
     q.push(source);
     seen[source] = 1;
 
+    /*
+        Initially:
+        queue = [0]
+        seen  = [1,0,0,0,0]
+    */
+
+    // =========================
+    // Breadth-First Search (BFS)
+    // =========================
     while (!q.empty()) {
-        int u = q.front(); q.pop();
+
+        // Take the front node
+        int u = q.front();
+        q.pop();
+
+        /*
+            First iteration:
+            u = 0
+            queue = []
+        */
+
+        // Visit all neighbors of u
         for (int v : adj[u]) {
+
+            // If we haven't visited v yet
             if (!seen[v]) {
-                if (v == dest) return true;
+
+                // If v is destination → path found!
+                if (v == dest)
+                    return true;
+
+                // Mark v as visited
                 seen[v] = 1;
+
+                // Add v to queue for further exploration
                 q.push(v);
+
+                /*
+                    From u = 0:
+                    v = 1
+                    queue = [1]
+                    seen = [1,1,0,0,0]
+                */
             }
         }
     }
+
+    // If BFS finishes and we never reached dest
     return false;
 }
 
@@ -334,58 +474,155 @@ long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long lo
     return totalCost;
 }
 
-// === All-Pairs Shortest Path (Floyd–Warshall) + sum -> binary ===
+// === All-Pairs Shortest Path + sum -> binary ===
+// Example:
+// n = 3
+// roads = {{0,1,1}, {1,2,2}}
+//
+// Graph:
+// 0 --(1)-- 1 --(2)-- 2
+//
+// Shortest distances:
+// 0-1 = 1
+// 1-2 = 2
+// 0-2 = 3  (0 -> 1 -> 2)
+//
+// Sum = 1 + 2 + 3 = 6
+// Binary = "110"
+
 string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) {
+
+    // If there are no nodes, no distances exist
     if (n <= 0) return string("0");
 
-    const long long INF = (1LL<<60);
-    // Use long long matrix
+    // A very large number representing "no path"
+    const long long INF = (1LL << 60);
+
+    // dist[i][j] = shortest distance from node i to node j
+    // Initially, we assume everything is unreachable (INF)
     vector<vector<long long>> dist(n, vector<long long>(n, INF));
 
-    for (int i = 0; i < n; ++i) dist[i][i] = 0;
+    // Distance from a node to itself is always 0
+    // Example: dist[0][0] = 0, dist[1][1] = 0, dist[2][2] = 0
+    for (int i = 0; i < n; ++i)
+        dist[i][i] = 0;
 
-    // roads entries: {u, v, length}
+    // Read roads: each road is {u, v, length}
+    // Example road {0,1,1} means:
+    // dist[0][1] = 1 and dist[1][0] = 1
     for (auto &r : roads) {
         if (r.size() < 3) continue;
+
         int u = r[0], v = r[1];
         long long w = r[2];
+
+        // Ignore invalid nodes
         if (u < 0 || u >= n || v < 0 || v >= n) continue;
-        // If multiple edges exist, keep the smallest length
+
+        // If multiple roads exist between same nodes,
+        // keep the smallest distance
         dist[u][v] = min(dist[u][v], w);
         dist[v][u] = min(dist[v][u], w);
     }
 
-    // Floyd-Warshall
+    /*
+        After reading roads for the example:
+
+            0   1   2
+        0 [ 0   1  INF ]
+        1 [ 1   0   2  ]
+        2 [ INF 2   0  ]
+    */
+
+    // =========================
+    // Find shortest paths using intermediate nodes
+    // =========================
+    // k = intermediate node
     for (int k = 0; k < n; ++k) {
         for (int i = 0; i < n; ++i) {
+
+            // If i cannot reach k, skip
             if (dist[i][k] == INF) continue;
+
             for (int j = 0; j < n; ++j) {
+
+                // If k cannot reach j, skip
                 if (dist[k][j] == INF) continue;
+
+                // Try path: i -> k -> j
                 long long nd = dist[i][k] + dist[k][j];
-                if (nd < dist[i][j]) dist[i][j] = nd;
+
+                /*
+                    Example when k = 1:
+                    i = 0, j = 2
+
+                    dist[0][1] = 1
+                    dist[1][2] = 2
+
+                    nd = 1 + 2 = 3
+
+                    This discovers path:
+                    0 --(1)-- 1 --(2)-- 2
+                */
+
+                // If going through k is shorter, update
+                if (nd < dist[i][j])
+                    dist[i][j] = nd;
             }
         }
     }
 
-    // Sum distances for unique pairs i < j, ignoring unreachable (INF)
-    __int128 total = 0; // use wider integer to avoid overflow in intermediate sum
+    /*
+        Final dist table for the example:
+
+            0   1   2
+        0 [ 0   1   3 ]
+        1 [ 1   0   2 ]
+        2 [ 3   2   0 ]
+    */
+
+    // =========================
+    // Sum shortest distances (only once per pair)
+    // =========================
+    __int128 total = 0;  // Big type to avoid overflow
+
     for (int i = 0; i < n; ++i) {
         for (int j = i + 1; j < n; ++j) {
-            if (dist[i][j] != INF) total += dist[i][j];
-            // If disconnected, the problem expects we skip those pairs (as in examples).
+
+            // Only count reachable pairs
+            if (dist[i][j] != INF)
+                total += dist[i][j];
+
+            /*
+                Example additions:
+                i=0, j=1 -> +1
+                i=0, j=2 -> +3
+                i=1, j=2 -> +2
+
+                total = 6
+            */
         }
     }
 
-    // Convert total to binary string
+    // If total distance is 0, binary is "0"
     if (total == 0) return string("0");
 
-    // Convert __int128 to binary
+    // =========================
+    // Convert total to binary
+    // =========================
     string bits;
     __int128 t = total;
+
+    // Example: total = 6
+    // 6 % 2 = 0
+    // 3 % 2 = 1
+    // 1 % 2 = 1
+    // Binary = 110
     while (t > 0) {
-        bits.push_back( (t & 1) ? '1' : '0' );
+        bits.push_back((t & 1) ? '1' : '0');
         t >>= 1;
     }
+
     reverse(bits.begin(), bits.end());
     return bits;
 }
