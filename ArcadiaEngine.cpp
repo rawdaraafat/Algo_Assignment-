@@ -100,25 +100,6 @@ public:
         }
         return "";
     }
-
-    //todo: this function is just for testing
-    // so we will need to remove it later
-    // as it's not an assignment requirement
-    void display() {
-        cout << "\n--- Player Hash Table (Double Hashing) ---\n";
-        cout << "Index\tPlayerID\tName\n";
-        cout << "----------------------------------------\n";
-
-        for (int i = 0; i < 101; i++) {
-            if (table[i].used) {
-                cout << i << "\t" << table[i].key
-                     << "\t\t" << table[i].value << endl;
-            } else {
-                cout << i << "\tEMPTY\n";
-            }
-        }
-        cout << "----------------------------------------\n\n";
-    }
 };
 
 // --- 2. Leaderboard (Skip List) ---
