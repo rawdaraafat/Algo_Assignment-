@@ -16,6 +16,9 @@
 - Student 3 name: Rawda Raafat
 - Student 3 ID: 20231067
 - Student 3 Work:
+    - Part B1: Minimize difference (DP)
+    - Part C1: Path existence (undirected graph(Breadth-First Search))
+    - Part C3: All-Pairs Shortest Path (graphs)
 # --------------------------------
 
 - Student 4 name: Manar
