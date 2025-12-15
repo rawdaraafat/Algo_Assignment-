@@ -390,86 +390,74 @@ public:
 // =========================================================
 
 // === Partition (Minimize difference) ===
-// Problem: divide coins into two groups such that the sum difference is minimized
-// Example:
-// coins = {1, 11, 5, 6}
-// Total sum = 1+11+5+6 = 23
-// Goal: split into groups with sums as close as possible
-// Closest split: {11,6} sum=17, {1,5} sum=6  → diff = 17-6 = 11? Actually let's trace carefully below
+// Problem:
+// Divide the coins into two groups such that the absolute
+// difference between the sums of the two groups is minimized.
+//
+// Core Idea (DP):
+// - Let total be the sum of all coins.
+// - If one group has sum S, the other has sum (total - S).
+// - The difference is |total - 2*S|.
+// - To minimize this difference, we want S as close as possible
+//   to total/2.
+// - This reduces to a 0/1 Subset Sum problem.
 
 int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
 
-    // Edge case: no coins → difference is 0
+    // If there are no coins, the difference is zero
     if (n <= 0 || coins.empty()) return 0;
 
-    // Compute total sum of coins
+    // Calculate the total sum of all coins
     long long total = 0;
-    for (int v : coins) total += v;
-    // Example: total = 1+11+5+6 = 23
+    for (int v : coins) {
+        total += v;
+    }
 
-    // We want to get as close as possible to half of total
-    long long half = total / 2; // 23/2 = 11 (integer division)
+    // We only need to consider sums up to total/2
+    // Any sum larger than that would create a larger difference
+    long long half = total / 2;
 
-    // dp[j] = 1 if it's possible to make sum j using some coins
+    // dp[j] = true if it is possible to form a subset of coins
+    // whose sum is exactly j
     vector<char> dp(half + 1, 0);
-    dp[0] = 1; // sum 0 is always possible (take no coins)
 
-    // =========================
-    // Fill dp table
-    // =========================
+    // Base case:
+    // A sum of 0 is always achievable by selecting no coins
+    dp[0] = 1;
+
+    // Build the DP table
+    // Each coin can be used at most once (0/1 property)
     for (int val : coins) {
-        // We iterate backwards to ensure we use each coin at most once
+
+        // Iterate backwards to avoid reusing the same coin
+        // in the same iteration
         for (long long j = half; j >= val; --j) {
-            // If sum (j-val) was achievable, then sum j is also achievable by adding val
-            if (dp[j - val]) dp[j] = 1;
 
-            /*
-                Example tracing with coins = {1, 11, 5, 6}:
-
-                Step 1: val = 1
-                dp[1] = dp[1-1] = dp[0] = 1 → sum 1 is possible
-                dp = [1,1,0,0,0,...,11]
-
-                Step 2: val = 11
-                Since half=11, j only = 11
-                dp[11] = dp[11-11]=dp[0]=1 → sum 11 is possible
-
-                Step 3: val = 5
-                j=11: dp[11] |= dp[6] (currently 0) → no change
-                j=10: dp[10] |= dp[5] (0) → no change
-                j=5: dp[5] |= dp[0]=1 → dp[5]=1
-                Now achievable sums <=11: 0,1,5,11
-
-                Step 4: val=6
-                j=11: dp[11] |= dp[5]=1 → dp[11]=1 (already 1)
-                j=10: dp[10] |= dp[4]=0 → no change
-                j=6: dp[6] |= dp[0]=1 → dp[6]=1
-
-                Final achievable sums <=11: 0,1,5,6,11
-            */
+            // If we could previously make sum (j - val),
+            // then by adding this coin we can now make sum j
+            if (dp[j - val]) {
+                dp[j] = 1;
+            }
         }
     }
 
-    // =========================
-    // Find the best achievable sum ≤ half
-    // =========================
+    // Find the largest achievable sum that does not exceed half
+    // This gives the closest possible partition to total/2
     long long best = 0;
     for (long long j = half; j >= 0; --j) {
-        if (dp[j]) { best = j; break; }
-        /*
-            For the example:
-            dp[11]=1 → best=11
-            So one group can sum to 11
-        */
+        if (dp[j]) {
+            best = j;
+            break;
+        }
     }
 
-    // The other group will have the remaining coins
-    long long other = total - best; // 23-11=12
+    // The second group gets the remaining sum
+    long long other = total - best;
 
-    // Absolute difference between the two groups
-    long long diff = llabs(other - best); // |12-11|=1
+    // The minimum difference between the two groups
+    long long diff = llabs(other - best);
 
-    return (int)diff; // returns 1
+    return (int)diff;
 }
 
 int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& items) {
@@ -507,128 +495,97 @@ long long InventorySystem::countStringPossibilities(string s)   {
 // PART C: WORLD NAVIGATOR (Graphs)
 // =========================================================
 
-// === Path existence (undirected graph) ===
-// This function checks:
-// "Is there ANY path from source to dest?"
+// === Path Existence (Undirected Graph) ===
 //
-// Example:
-// n = 5
-// edges = {{0,1}, {1,2}, {3,4}}
-// source = 0, dest = 2
+// Problem:
+// Determine whether there exists at least one path
+// from a given source node to a destination node
+// in an undirected graph.
 //
-// Graph:
-// 0 -- 1 -- 2      3 -- 4
-//
-// Expected answer: true
+// Approach:
+// - Represent the graph using an adjacency list.
+// - Perform Breadth-First Search (BFS) starting from the source.
+// - If the destination is reached during BFS, a path exists.
 
 bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, int dest) {
 
     // =========================
-    // Basic validation
+    // Input validation
     // =========================
 
-    // No nodes → no path
+    // If the graph has no nodes, no path can exist
     if (n <= 0) return false;
 
-    // Invalid source or destination
+    // Check that source and destination are valid node indices
     if (source < 0 || source >= n || dest < 0 || dest >= n)
         return false;
 
-    // Same node → path exists trivially
-    // Example: source=2, dest=2
+    // If source and destination are the same node,
+    // a path exists trivially
     if (source == dest) return true;
 
     // =========================
     // Build adjacency list
     // =========================
-    // adj[i] will store all nodes connected to i
+    // adj[i] contains all nodes directly connected to node i
     vector<vector<int>> adj(n);
 
+    // Each edge connects two nodes bidirectionally
     for (auto &e : edges) {
         if (e.size() >= 2) {
-            int u = e[0], v = e[1];
+            int u = e[0];
+            int v = e[1];
 
-            // Ignore invalid edges
+            // Ignore edges with invalid node indices
             if (u >= 0 && u < n && v >= 0 && v < n) {
-                // Undirected graph → add both directions
                 adj[u].push_back(v);
                 adj[v].push_back(u);
             }
         }
     }
 
-    /*
-        After building adj for the example:
-
-        adj[0] = {1}
-        adj[1] = {0, 2}
-        adj[2] = {1}
-        adj[3] = {4}
-        adj[4] = {3}
-    */
-
-    // =========================
-    // BFS setup
-    // =========================
-
-    // seen[i] = 1 means "we already visited node i"
-    vector<char> seen(n, 0);
-
-    // Queue for BFS
-    queue<int> q;
-
-    // Start BFS from source
-    q.push(source);
-    seen[source] = 1;
-
-    /*
-        Initially:
-        queue = [0]
-        seen  = [1,0,0,0,0]
-    */
-
     // =========================
     // Breadth-First Search (BFS)
     // =========================
+
+    // seen[i] indicates whether node i has already been visited
+    vector<char> seen(n, 0);
+
+    // Queue used to explore the graph level by level
+    queue<int> q;
+
+    // Start BFS from the source node
+    q.push(source);
+    seen[source] = 1;
+
+    // Explore all reachable nodes
     while (!q.empty()) {
 
-        // Take the front node
+        // Get the next node to process
         int u = q.front();
         q.pop();
 
-        /*
-            First iteration:
-            u = 0
-            queue = []
-        */
-
-        // Visit all neighbors of u
+        // Visit all neighbors of the current node
         for (int v : adj[u]) {
 
-            // If we haven't visited v yet
+            // Process only unvisited nodes
             if (!seen[v]) {
 
-                // If v is destination → path found!
+                // If destination is reached, a path exists
                 if (v == dest)
                     return true;
 
-                // Mark v as visited
+                // Mark the node as visited
                 seen[v] = 1;
 
-                // Add v to queue for further exploration
+                // Add the node to the queue for further exploration
                 q.push(v);
-
-                /*
-                    From u = 0:
-                    v = 1
-                    queue = [1]
-                    seen = [1,1,0,0,0]
-                */
             }
         }
     }
 
-    // If BFS finishes and we never reached dest
+    // If BFS completes without reaching destination,
+    // then no path exists
     return false;
 }
 
@@ -688,74 +645,62 @@ long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long lo
     return totalCost;
 }
 
-// === All-Pairs Shortest Path + sum -> binary ===
-// Example:
-// n = 3
-// roads = {{0,1,1}, {1,2,2}}
+// === All-Pairs Shortest Path + Sum in Binary ===
 //
-// Graph:
-// 0 --(1)-- 1 --(2)-- 2
+// Problem:
+// Given an undirected weighted graph, compute the shortest
+// distance between every pair of nodes.
+// Then sum the shortest distances for all unique pairs (i < j)
+// and return the result as a binary string.
 //
-// Shortest distances:
-// 0-1 = 1
-// 1-2 = 2
-// 0-2 = 3  (0 -> 1 -> 2)
-//
-// Sum = 1 + 2 + 3 = 6
-// Binary = "110"
+// Approach:
+// - Use Floyd–Warshall to compute all-pairs shortest paths.
+// - Sum distances for unique reachable node pairs.
+// - Convert the sum to binary representation.
 
 string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) {
 
-    // If there are no nodes, no distances exist
+    // If there are no nodes, there are no distances to sum
     if (n <= 0) return string("0");
 
-    // A very large number representing "no path"
+    // A very large value representing "infinite distance"
     const long long INF = (1LL << 60);
 
-    // dist[i][j] = shortest distance from node i to node j
-    // Initially, we assume everything is unreachable (INF)
+    // dist[i][j] stores the shortest distance from node i to node j
+    // Initially, all distances are set to INF (unreachable)
     vector<vector<long long>> dist(n, vector<long long>(n, INF));
 
-    // Distance from a node to itself is always 0
-    // Example: dist[0][0] = 0, dist[1][1] = 0, dist[2][2] = 0
-    for (int i = 0; i < n; ++i)
+    // Distance from any node to itself is zero
+    for (int i = 0; i < n; ++i) {
         dist[i][i] = 0;
+    }
 
-    // Read roads: each road is {u, v, length}
-    // Example road {0,1,1} means:
-    // dist[0][1] = 1 and dist[1][0] = 1
+    // Populate the distance matrix using the given roads
+    // Each road connects two nodes with a given weight
     for (auto &r : roads) {
         if (r.size() < 3) continue;
 
-        int u = r[0], v = r[1];
+        int u = r[0];
+        int v = r[1];
         long long w = r[2];
 
-        // Ignore invalid nodes
+        // Ignore invalid node indices
         if (u < 0 || u >= n || v < 0 || v >= n) continue;
 
-        // If multiple roads exist between same nodes,
-        // keep the smallest distance
+        // Since the graph is undirected, update both directions
+        // Keep the smallest weight if multiple edges exist
         dist[u][v] = min(dist[u][v], w);
         dist[v][u] = min(dist[v][u], w);
     }
 
-    /*
-        After reading roads for the example:
-
-            0   1   2
-        0 [ 0   1  INF ]
-        1 [ 1   0   2  ]
-        2 [ INF 2   0  ]
-    */
-
     // =========================
-    // Find shortest paths using intermediate nodes
+    // Floyd–Warshall Algorithm
     // =========================
-    // k = intermediate node
+    // Try all nodes as intermediate points to improve paths
     for (int k = 0; k < n; ++k) {
         for (int i = 0; i < n; ++i) {
 
-            // If i cannot reach k, skip
+            // If node i cannot reach k, skip
             if (dist[i][k] == INF) continue;
 
             for (int j = 0; j < n; ++j) {
@@ -763,82 +708,52 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
                 // If k cannot reach j, skip
                 if (dist[k][j] == INF) continue;
 
-                // Try path: i -> k -> j
-                long long nd = dist[i][k] + dist[k][j];
+                // Check whether the path i -> k -> j is shorter
+                long long newDist = dist[i][k] + dist[k][j];
 
-                /*
-                    Example when k = 1:
-                    i = 0, j = 2
-
-                    dist[0][1] = 1
-                    dist[1][2] = 2
-
-                    nd = 1 + 2 = 3
-
-                    This discovers path:
-                    0 --(1)-- 1 --(2)-- 2
-                */
-
-                // If going through k is shorter, update
-                if (nd < dist[i][j])
-                    dist[i][j] = nd;
+                if (newDist < dist[i][j]) {
+                    dist[i][j] = newDist;
+                }
             }
         }
     }
 
-    /*
-        Final dist table for the example:
-
-            0   1   2
-        0 [ 0   1   3 ]
-        1 [ 1   0   2 ]
-        2 [ 3   2   0 ]
-    */
-
     // =========================
-    // Sum shortest distances (only once per pair)
+    // Sum shortest distances
     // =========================
-    __int128 total = 0;  // Big type to avoid overflow
+    // Use a larger integer type to avoid overflow
+    __int128 total = 0;
 
+    // Sum distances only for unique pairs (i < j)
     for (int i = 0; i < n; ++i) {
         for (int j = i + 1; j < n; ++j) {
 
-            // Only count reachable pairs
-            if (dist[i][j] != INF)
+            // Only include pairs that are reachable
+            if (dist[i][j] != INF) {
                 total += dist[i][j];
-
-            /*
-                Example additions:
-                i=0, j=1 -> +1
-                i=0, j=2 -> +3
-                i=1, j=2 -> +2
-
-                total = 6
-            */
+            }
         }
     }
 
-    // If total distance is 0, binary is "0"
+    // If the sum is zero, return binary zero
     if (total == 0) return string("0");
 
     // =========================
-    // Convert total to binary
+    // Convert sum to binary
     // =========================
-    string bits;
-    __int128 t = total;
+    string binary;
+    __int128 value = total;
 
-    // Example: total = 6
-    // 6 % 2 = 0
-    // 3 % 2 = 1
-    // 1 % 2 = 1
-    // Binary = 110
-    while (t > 0) {
-        bits.push_back((t & 1) ? '1' : '0');
-        t >>= 1;
+    // Repeatedly extract least significant bits
+    while (value > 0) {
+        binary.push_back((value & 1) ? '1' : '0');
+        value >>= 1;
     }
 
-    reverse(bits.begin(), bits.end());
-    return bits;
+    // Reverse to obtain correct binary order
+    reverse(binary.begin(), binary.end());
+
+    return binary;
 }
 
 // =========================================================
@@ -926,21 +841,3 @@ extern "C" {
         return new ConcreteAuctionTree(); 
     }
 }
-
-// int main() {
-//     // ==== Test Path Existence ====
-//     vector<vector<int>> edges = {};
-//     cout << "Path from 0 to 1: " << (WorldNavigator::pathExists(1, edges, 0, 0) ? "YES" : "NO") << endl;
-//
-//     // ==== Test Partition (Optimize Loot Split) ====
-//     vector<int> coins = {1,2,4};
-//     cout << "Min loot difference: " << InventorySystem::optimizeLootSplit(coins.size(), coins) << endl;
-//
-//     // ==== Test All-Pairs Shortest Path Sum (Binary) ====
-//     vector<vector<int>> roads = {
-//         {{0,1,1}, {1,2,2}}
-//     };
-//     cout << "APSP Sum (Binary): " << WorldNavigator::sumMinDistancesBinary(3, roads) << endl;
-//
-//     return 0;
-// }
