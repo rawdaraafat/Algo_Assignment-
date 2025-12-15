@@ -103,29 +103,262 @@ public:
 };
 
 // --- 2. Leaderboard (Skip List) ---
-
 class ConcreteLeaderboard : public Leaderboard {
 private:
-    // TODO: Define your skip list node structure and necessary variables
-    // Hint: You'll need nodes with multiple forward pointers
+    // Skip list node structure representing each player in the leaderboard
+    struct SkipListNode {
+        int playerID;            // Unique identifier for the player
+        int score;               // Current score of the player
+        vector<SkipListNode*> forward;  // Forward pointers for each level
+        int level;               // Maximum level this node participates in
+
+        // Constructor: creates a node with given ID, score, and level
+        // The forward vector is initialized with (level + 1) nullptr pointers
+        SkipListNode(int id, int sc, int lvl) : playerID(id), score(sc), level(lvl) {
+            forward.resize(lvl + 1, nullptr);  // Allocate forward pointers for each level
+        }
+    };
+
+    SkipListNode* head;    // Head node of the skip list (sentinel node)
+    int maxLevel;          // Maximum allowed level in the skip list
+    float probability;     // Probability for random level generation (typically 0.5)
+
+    /// Simple random number generator for determining node levels
+    /// Returns: A random level between 0 and maxLevel-1
+    /// Method: Uses coin flip analogy - each level has 50% chance to continue
+    int randomLevel() {
+        int lvl = 0;  // Start at level 0 (always included)
+
+        // Continue flipping coin while we get heads (probability) and below maxLevel
+        // rand()/RAND_MAX gives a value between 0 and 1
+        // We continue while this value < probability (e.g., 0.5)
+        while (((float)rand() / RAND_MAX) < probability && lvl < maxLevel) {
+            lvl++;  // Increase level for each successful coin flip
+        }
+        return lvl;  // Return the final level
+    }
+
+    /// Comparison function for skip list ordering
+    /// Determines whether newNode should be placed before existingNode
+    /// Ordering rules:
+    ///   1. Higher scores come first (descending)
+    ///   2. For equal scores, lower playerID comes first (ascending)
+    /// Parameters:
+    ///   newNode - The node being inserted
+    ///   existingNode - The node currently in the list
+    /// Returns: true if newNode should come before existingNode
+    bool shouldInsertBefore(SkipListNode* newNode, SkipListNode* existingNode) {
+        // Case 1: existingNode is null (end of list) - newNode should definitely be inserted
+        if (existingNode == nullptr) return true;
+
+        // Case 2: newNode has higher score than existingNode - comes before
+        if (newNode->score > existingNode->score) return true;
+
+        // Case 3: Scores are equal, but newNode has lower playerID - comes before
+        // This implements the tie-breaking rule
+        if (newNode->score == existingNode->score && newNode->playerID < existingNode->playerID)
+            return true;
+
+        // Case 4: Otherwise, newNode should come after existingNode
+        return false;
+    }
 
 public:
+    /// Constructor: Initializes an empty skip list
     ConcreteLeaderboard() {
-        // TODO: Initialize your skip list
+        maxLevel = 16;            // Maximum of 16 levels (can be adjusted based on expected size)
+        probability = 0.5;        // 50% chance to go to next level
+        // Create head sentinel node with minimum possible values
+        // INT_MIN ensures it's always first in the list
+        head = new SkipListNode(-1, INT_MIN, maxLevel);
+        srand(time(nullptr));     // Seed random number generator with current time
     }
 
+    /// Destructor: Cleans up all allocated memory to prevent leaks
+    ~ConcreteLeaderboard() {
+        // Start from the first real node (level 0)
+        SkipListNode* current = head->forward[0];
+
+        // Traverse the bottom level and delete all nodes
+        while (current != nullptr) {
+            SkipListNode* next = current->forward[0];  // Save next pointer before deletion
+            delete current;                            // Delete current node
+            current = next;                            // Move to next node
+        }
+
+        delete head;  // Finally delete the head sentinel node
+    }
+
+    /// Adds or updates a player's score in the leaderboard
+    /// Time Complexity: O(log n) average for insertion + O(n) for finding existing player
+    /// Parameters:
+    ///   playerID - The ID of the player to add/update
+    ///   score - The score to add to the player's current score
     void addScore(int playerID, int score) override {
-        // TODO: Implement skip list insertion
-        // Remember to maintain descending order by score
+        /// Step 1: Check if player already exists (linear scan O(n) as allowed)
+        /// We need to find existing player to update their cumulative score
+        SkipListNode* existing = nullptr;
+        SkipListNode* current = head->forward[0];  // Start from first real node
+
+        // Traverse the bottom level to find the player
+        while (current != nullptr) {
+            if (current->playerID == playerID) {
+                existing = current;  // Found the player
+                break;
+            }
+            current = current->forward[0];
+        }
+
+        int finalScore;
+        if (existing != nullptr) {
+            /// Case A: Player exists - update their score cumulatively
+            /// The problem says "addScore" means add to existing score
+            finalScore = existing->score + score;
+            // Remove the old node with old score
+            removePlayer(playerID);  // This handles deletion from skip list
+        } else {
+            /// Case B: New player - use the given score as starting score
+            finalScore = score;
+        }
+
+        /// Step 2: Create new node with the final score and random level
+        int nodeLevel = randomLevel();  // Determine how many levels this node will have
+        SkipListNode* newNode = new SkipListNode(playerID, finalScore, nodeLevel);
+
+        /// Step 3: Find insertion position at each level (skip list search)
+        /// We need to track the last node at each level that will point to newNode
+        vector<SkipListNode*> update(maxLevel + 1, nullptr);
+        current = head;  // Start search from head
+
+        // Traverse from highest level down to level 0
+        for (int i = maxLevel; i >= 0; i--) {
+            // Move forward while:
+            // 1. There's a next node at this level, AND
+            // 2. newNode should NOT come before the next node (based on ordering rules)
+            while (current->forward[i] != nullptr &&
+                   !shouldInsertBefore(newNode, current->forward[i])) {
+                current = current->forward[i];  // Move to next node at this level
+            }
+            // When loop exits, current is the node that should point to newNode at level i
+            update[i] = current;
+        }
+
+        /// Step 4: Insert newNode at all levels from 0 to nodeLevel
+        /// For each level i where i <= nodeLevel:
+        ///   1. newNode's forward[i] points to what update[i] was pointing to
+        ///   2. update[i]'s forward[i] now points to newNode
+        for (int i = 0; i <= nodeLevel; i++) {
+            newNode->forward[i] = update[i]->forward[i];  // Step 1
+            update[i]->forward[i] = newNode;              // Step 2
+        }
+        // For levels > nodeLevel, newNode doesn't exist, so no updates needed
     }
 
+    /// Removes a player from the leaderboard
+    /// Time Complexity: O(n) for linear scan (as allowed) + O(log n) for pointer updates
+    /// Parameters:
+    ///   playerID - The ID of the player to remove
     void removePlayer(int playerID) override {
-        // TODO: Implement skip list deletion
+        /// Step 1: Linear scan to find the node by playerID (O(n) as specified)
+        /// Unlike search by score, we can't use skip list levels efficiently for ID search
+        SkipListNode* nodeToDelete = nullptr;
+        SkipListNode* current = head->forward[0];  // Start from first real node
+
+        // Traverse bottom level (level 0) until we find the player or reach end
+        while (current != nullptr) {
+            if (current->playerID == playerID) {
+                nodeToDelete = current;  // Found the node to delete
+                break;
+            }
+            current = current->forward[0];
+        }
+
+        // If player not found, nothing to do
+        if (nodeToDelete == nullptr) return;
+
+        /// Step 2: Find update positions for all levels (similar to insertion search)
+        /// We need to find all nodes that point to nodeToDelete at each level
+        vector<SkipListNode*> update(maxLevel + 1, nullptr);
+        current = head;  // Start search from head
+
+        // Traverse from highest level down to level 0
+        for (int i = maxLevel; i >= 0; i--) {
+            // Move forward while:
+            // 1. There's a next node at this level, AND
+            // 2. Next node is not the one we're deleting, AND
+            // 3. nodeToDelete should NOT come before next node
+            while (current->forward[i] != nullptr &&
+                   current->forward[i] != nodeToDelete &&
+                   !shouldInsertBefore(nodeToDelete, current->forward[i])) {
+                current = current->forward[i];
+            }
+            // When loop exits, current is the node that points to nodeToDelete at level i
+            update[i] = current;
+        }
+
+        /// Step 3: Verify we actually found the right node
+        /// This is a sanity check - current->forward[0] should be nodeToDelete
+        if (current->forward[0] != nodeToDelete) {
+            // This shouldn't happen if our linear scan was correct
+            // Could indicate a bug in the update[] finding logic
+            return;
+        }
+
+        /// Step 4: Remove node from skip list at all levels where it exists
+        /// For each level from 0 to nodeToDelete->level:
+        ///   1. Check if update[i] actually points to nodeToDelete
+        ///   2. If yes, make update[i] point to nodeToDelete->forward[i]
+        ///   (This "bypasses" nodeToDelete in the linked list at level i)
+        for (int i = 0; i <= nodeToDelete->level; i++) {
+            // Some levels might not contain the node (if nodeLevel < i)
+            // Or update[i] might not point to nodeToDelete due to skip list structure
+            if (update[i]->forward[i] != nodeToDelete) {
+                // This level doesn't have nodeToDelete, skip it
+                continue;
+            }
+            // Bypass nodeToDelete at this level
+            update[i]->forward[i] = nodeToDelete->forward[i];
+        }
+
+        // Step 5: Free the memory allocated for the deleted node
+        delete nodeToDelete;
     }
 
+    /// Returns the top N player IDs in descending score order
+    /// Time Complexity: O(n) worst-case, but O(k) where k = min(n, N)
+    /// Parameters:
+    ///   n - Number of top players to retrieve
+    /// Returns: Vector of player IDs of the top N players
     vector<int> getTopN(int n) override {
-        // TODO: Return top N player IDs in descending score order
-        return {};
+        vector<int> result;
+        // Start from the first real node (after head sentinel)
+        SkipListNode* current = head->forward[0];
+
+        // Traverse the bottom level (level 0) which contains all nodes in sorted order
+        // Stop when we've collected n players or reached end of list
+        while (current != nullptr && result.size() < n) {
+            result.push_back(current->playerID);  // Add player ID to result
+            current = current->forward[0];        // Move to next node
+        }
+
+        return result;
+    }
+
+    /// Debug helper function: Prints the entire skip list structure
+    /// Shows each level from highest to lowest with all nodes at that level
+    void printList() {
+        // Print from highest level down to level 0
+        for (int i = maxLevel; i >= 0; i--) {
+            cout << "Level " << i << ": ";
+            SkipListNode* current = head->forward[i];  // Start from first node at this level
+
+            // Traverse all nodes at this level
+            while (current != nullptr) {
+                cout << "[" << current->playerID << "," << current->score << "] ";
+                current = current->forward[i];  // Move to next node at same level
+            }
+            cout << endl;
+        }
     }
 };
 
