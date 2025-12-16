@@ -30,7 +30,7 @@ private:
         Player() : key(-1), used(false) {}
     };
 
-    vector<Player> table;
+    Player table[101];
 
     ///Mid-Square Hash Function (r = 2)
     int midSquare(int key) {
@@ -62,10 +62,6 @@ private:
     }
 
 public:
-    ConcretePlayerTable() {
-        table.resize(101);
-    }
-
     /// INSERT using Double Hashing
     void insert(int playerID, string name) override {
         int h1 = midSquare(playerID);
