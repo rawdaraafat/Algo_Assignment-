@@ -794,7 +794,6 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
         // Since the graph is undirected, update both directions
         // Keep the smallest weight if multiple edges exist
         dist[u][v] = min(dist[u][v], w);
-        dist[v][u] = min(dist[v][u], w);
     }
 
     // =========================
