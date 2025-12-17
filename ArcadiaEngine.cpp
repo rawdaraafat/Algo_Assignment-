@@ -17,7 +17,7 @@ using namespace std;
 // PART A: DATA STRUCTURES (Concrete Implementations)
 // =========================================================
 
-///PlayerTable (Mid square - Double Hashing)
+///PlayerTable (Double Hashing)
 class ConcretePlayerTable : public PlayerTable {
 private:
     /// Structure to represent each player entry in the hash table
@@ -33,27 +33,9 @@ private:
     /// Fixed-size hash table array (size 101 as required)
     Player table[101];
 
-    /// MID-SQUARE HASH FUNCTION
-    /// Computes primary hash index based on player's shirt number
-    int midSquare(int key) {
-        int sq = key * key;          // Step 1: square the key
-        string s = to_string(sq);    // Step 2: convert to string to extract digits
-        int n = s.size();
-
-        int mid = n / 2;
-        int start, len;
-
-        /// Step 3: extract middle digits at r = 2 (2 for even length, 3 for odd)
-        if (n % 2 == 0) {
-            start = mid - 1;
-            len = 2;
-        } else {
-            start = max(0, mid - 1);
-            len = 3;
-        }
-
-        int midDigits = stoi(s.substr(start, len));  // Convert substring to integer
-        return midDigits % 101;                      // Ensure index fits table size
+    /// PRIMARY HASH FUNCTION
+    int hash1(int key) {
+        return key % 101;
     }
 
     /// SECOND HASH FUNCTION (FOR DOUBLE HASHING)
@@ -66,20 +48,14 @@ public:
     /// INSERT FUNCTION USING DOUBLE HASHING
     /// Inserts a playerID-name pair into the hash table
     void insert(int playerID, string name) override {
-        int h1 = midSquare(playerID); // Primary hash
-        int h2 = hash2(playerID);     // Secondary hash for collision resolution
+        int h1 = hash1(playerID); // Primary hash
+        int h2 = hash2(playerID); // Secondary hash for collision resolution
 
         /// Try up to 101 slots (entire table)
         for (int i = 0; i < 101; i++) {
             int index = (h1 + i * h2) % 101; // Double hashing formula
 
-            /// Case 1: Key already exists → update value
-            if (table[index].used && table[index].key == playerID) {
-                table[index].value = name; // update name
-                return;
-            }
-
-            /// Case 2: Empty slot → insert new key
+            /// Empty slot → insert new key
             if (!table[index].used) {
                 table[index].key = playerID;
                 table[index].value = name;
@@ -95,14 +71,14 @@ public:
     /// SEARCH FUNCTION USING DOUBLE HASHING
     /// Looks for a player by shirt number
     string search(int playerID) override {
-        int h1 = midSquare(playerID); // Primary hash
-        int h2 = hash2(playerID);     // Secondary hash for probing
+        int h1 = hash1(playerID); // Primary hash
+        int h2 = hash2(playerID); // Secondary hash for probing
 
         /// Try up to 101 slots
         for (int i = 0; i < 101; i++) {
             int index = (h1 + i * h2) % 101;
 
-            if (!table[index].used)      // Empty slot → player not found
+            if (!table[index].used) // Empty slot → player not found
                 return "";
 
             if (table[index].key == playerID) // Found the player

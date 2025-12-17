@@ -41,8 +41,8 @@ void testPlayerTable() {
     cout << table.search(100000)<< endl;
 
     // Fill all 101 slots with UNIQUE keys
-    for (int i = 1; i < 96; i++) {
-        table.insert(i , "Player" + to_string(i + 1));
+    for (int i = 1; i < 300; i+=3) {
+        table.insert(i , "Player" + to_string(i));
     }
     table.display();
 
