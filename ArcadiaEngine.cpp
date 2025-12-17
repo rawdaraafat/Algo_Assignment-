@@ -1,6 +1,3 @@
-// ArcadiaEngine.cpp - STUDENT TEMPLATE
-// TODO: Implement all the functions below according to the assignment requirements
-
 #include "ArcadiaEngine.h"
 #include <algorithm>
 #include <queue>
@@ -23,53 +20,66 @@ using namespace std;
 ///PlayerTable (Mid square - Double Hashing)
 class ConcretePlayerTable : public PlayerTable {
 private:
+    /// Structure to represent each player entry in the hash table
     struct Player {
-        int key; //shirt number
-        string value; //name
-        bool used;
+        int key;        // Shirt number (unique identifier for player)
+        string value;   // Player's name
+        bool used;      // Marks whether this slot is occupied in the table
+
+        /// Default constructor initializes an empty slot
         Player() : key(-1), used(false) {}
     };
 
+    /// Fixed-size hash table array (size 101 as required)
     Player table[101];
 
-    ///Mid-Square Hash Function (r = 2)
+    /// MID-SQUARE HASH FUNCTION
+    /// Computes primary hash index based on player's shirt number
     int midSquare(int key) {
-        int sq = key * key;
-        string s = to_string(sq);
+        int sq = key * key;          // Step 1: square the key
+        string s = to_string(sq);    // Step 2: convert to string to extract digits
         int n = s.size();
 
         int mid = n / 2;
         int start, len;
 
+        /// Step 3: extract middle digits at r = 2 (2 for even length, 3 for odd)
         if (n % 2 == 0) {
-            /// Even length → take 2 middle digits
             start = mid - 1;
             len = 2;
         } else {
-            /// Odd length → take 3 middle digits
             start = max(0, mid - 1);
             len = 3;
         }
 
-        /// Extract substring and convert to integer
-        int midDigits = stoi(s.substr(start, len));
-        return midDigits % 101;     // hash index
+        int midDigits = stoi(s.substr(start, len));  // Convert substring to integer
+        return midDigits % 101;                      // Ensure index fits table size
     }
 
-    /// Second hash for double hashing
+    /// SECOND HASH FUNCTION (FOR DOUBLE HASHING)
+    /// Ensures probing in case of collision
     int hash2(int key) {
-        return 97 - (key % 97); //first prime < 101
+        return 97 - (key % 97); // Prime < 101 to reduce clustering
     }
 
 public:
-    /// INSERT using Double Hashing
+    /// INSERT FUNCTION USING DOUBLE HASHING
+    /// Inserts a playerID-name pair into the hash table
     void insert(int playerID, string name) override {
-        int h1 = midSquare(playerID);
-        int h2 = hash2(playerID);
+        int h1 = midSquare(playerID); // Primary hash
+        int h2 = hash2(playerID);     // Secondary hash for collision resolution
 
+        /// Try up to 101 slots (entire table)
         for (int i = 0; i < 101; i++) {
-            int index = (h1 + i * h2) % 101;
+            int index = (h1 + i * h2) % 101; // Double hashing formula
 
+            /// Case 1: Key already exists → update value
+            if (table[index].used && table[index].key == playerID) {
+                table[index].value = name; // update name
+                return;
+            }
+
+            /// Case 2: Empty slot → insert new key
             if (!table[index].used) {
                 table[index].key = playerID;
                 table[index].value = name;
@@ -77,24 +87,47 @@ public:
                 return;
             }
         }
-        cout << "Hash Table is FULL! Cannot insert.\n";
+
+        /// If table is completely full, print error
+        cout << "Table is Full\n";
     }
 
-    /// SEARCH using Double Hashing
+    /// SEARCH FUNCTION USING DOUBLE HASHING
+    /// Looks for a player by shirt number
     string search(int playerID) override {
-        int h1 = midSquare(playerID);
-        int h2 = hash2(playerID);
+        int h1 = midSquare(playerID); // Primary hash
+        int h2 = hash2(playerID);     // Secondary hash for probing
 
+        /// Try up to 101 slots
         for (int i = 0; i < 101; i++) {
             int index = (h1 + i * h2) % 101;
 
-            if (!table[index].used)
-                return "";  //key not found
+            if (!table[index].used)      // Empty slot → player not found
+                return "";
 
-            if (table[index].key == playerID)
+            if (table[index].key == playerID) // Found the player
                 return table[index].value;
         }
-        return "";
+
+        return ""; // Not found after full probing
+    }
+
+    /// DISPLAY FUNCTION
+    /// For testing/debugging: prints table contents
+    void display() {
+        cout << "\n--- Player Hash Table (Double Hashing) ---\n";
+        cout << "Index\tPlayerID\tName\n";
+        cout << "----------------------------------------\n";
+
+        for (int i = 0; i < 101; i++) {
+            if (table[i].used) {
+                cout << i << "\t" << table[i].key
+                     << "\t\t" << table[i].value << endl;
+            } else {
+                cout << i << "\tEMPTY\n"; // Slot is empty
+            }
+        }
+        cout << "----------------------------------------\n\n";
     }
 };
 
@@ -463,27 +496,51 @@ int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& it
     return 0;
 }
 
-///string decoding(DP)
-long long InventorySystem::countStringPossibilities(string s)   {
-    ///This is a large prime number to avoid integer overflow.
+/// STRING DECODING USING DYNAMIC PROGRAMMING
+// Counts all valid sequences of a string where "uu" and "nn" can optionally merge
+long long InventorySystem::countStringPossibilities(string s) {
+    /// MOD to prevent integer overflow for very large numbers of combinations
     const int MOD = 1e9 + 7;
     int n = s.size();
-    vector<long long> dp(n + 1, 0);
-    dp[0] = 1;  // empty string
 
-    ///it counts all valid sequences of s where "uu" and "nn" can optionally merge.
+    /// dp[i] stores the number of ways to decode first i characters of string
+    vector<long long> dp(n + 1, 0);
+    dp[0] = 1;  // Base case: empty string has exactly 1 way
+
+    /// Iterate through characters of the string
     for (int i = 1; i <= n; i++) {
-        /// Single character
+
+        /// Single-character contribution: each character can stand alone as a valid sequence
         dp[i] = dp[i - 1] % MOD;
 
-        /// Check two-character substitution
+        /// Two-character merge check: only possible if at least 2 characters
         if (i >= 2) {
+            /// Take the last 2 characters to see if they form a valid merge pair
             string pair = s.substr(i - 2, 2);
+
+            /// Merge allowed only for "uu" or "nn"
+            /// If valid, add the number of sequences from dp[i-2]
             if (pair == "uu" || pair == "nn") {
-                dp[i] = (dp[i] + dp[i - 2]) % MOD;
+                dp[i] = (dp[i] + dp[i - 2]) % MOD;  // Merge update
             }
         }
+
+        /**
+        Example for s = "uunu" (n = 4):
+        dp array evolution:
+        i=0: dp[0] = 1 (empty string)
+        i=1: dp[1] = dp[0] = 1   // "u"
+        i=2: dp[2] = dp[1] + dp[0] = 1 + 1 = 2  // "uu" can merge
+        i=3: dp[3] = dp[2] = 2   // "uun", no merge possible
+        i=4: dp[4] = dp[3] = 2   // "uunu", last 2 = "nu", no merge
+
+        Valid sequences for "uunu":
+        1) "u u n u"  (no merges)
+        2) "uu n u"   (first two 'u's merged)
+        **/
     }
+
+    /// Return total number of valid sequences for entire string
     return dp[n];
 }
 
@@ -585,61 +642,112 @@ bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, i
     return false;
 }
 
-///MST with Prim's
+/// MINIMUM SPANNING TREE USING PRIM'S ALGORITHM
+/// Computes the minimum total cost to connect all cities
+/// goldRate, silverRate: cost multipliers for each road
+/// roadData[i] = {u, v, goldCost, silverCost} for each road
 long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long long silverRate,
                                        vector<vector<int>>& roadData) {
-    /// Build adjacency list
-    /// adj is a vector of vectors,
-    /// used to store the adjacency list of the graph.
-    /// Example:
-    ///    If adj[0] = {{1,10}, {2,20}},
-    ///    it means city 0 is connected to city 1 with cost 10, and city 2 with cost 20.
+    /// --- Step 1: Build adjacency list
+    /// Each city (node) has a vector of pairs {neighbor, cost}
+    /// This allows fast access to all connected roads from a city
     vector<vector<pair<int,long long>>> adj(n);
-    for(int i = 0 ; i < m ; i++){
-        int u = roadData[i][0], v = roadData[i][1];
-        long long c = roadData[i][2]*goldRate + roadData[i][3]*silverRate;
 
-        ///Since the roads are undirected, the connection works both ways.
-        adj[u].push_back({v,c});
-        adj[v].push_back({u,c});
+    for (int i = 0; i < m; i++) {
+        int u = roadData[i][0];
+        int v = roadData[i][1];
+        /// Compute total cost using gold and silver rates
+        long long c = roadData[i][2] * goldRate + roadData[i][3] * silverRate;
+
+        /// Undirected graph → add connection in both directions
+        adj[u].push_back({v, c});
+        adj[v].push_back({u, c});
     }
 
-    /// Prim's algorithm
-    vector<bool> visited(n,false);
+    /// --- Step 2: Initialize visited array for cities
+    /// visited[i] = true if city i is already included in the MST
+    vector<bool> visited(n, false);
 
-    ///Each element is a pair {cost, node}:
-    ///    first = cost of reaching node from the MST
-    ///    second = node itself
-    ///greater<pair<...>> → makes it a min-heap, so the smallest cost edge is always on top.
+    /// --- Step 3: Priority queue (min-heap) to select next minimum-cost edge
+    /// Each element: {cost to reach node, node index}
+    /// greater<pair<...>> ensures the smallest cost edge is at the top
     priority_queue<pair<long long,int>, vector<pair<long long,int>>, greater<pair<long long,int>>> pq;
 
-    pq.push({0,0}); // {cost, node}
-    long long totalCost = 0;
-    int visitedCount = 0;
+    /// Start MST from node 0 with cost 0
+    pq.push({0, 0});
+    long long totalCost = 0;  // Total MST cost accumulator
+    int visitedCount = 0;     // Number of cities added to MST
 
-    /// The loop picks the minimum-cost edge from the priority queue connecting the MST to an unvisited node.
-    /// If the node has already been visited, the edge is skipped
-    /// Otherwise, the node with it's cost is added to the MST, and all edges from this new node are candidate edges for the next iterations.
-    while(!pq.empty() && visitedCount < n){
-        auto [c,u] = pq.top();
+    /// --- Step 4: Prim's main loop
+    /// Continue until all cities are visited or no edges left
+    while (!pq.empty() && visitedCount < n) {
+        /// Pick the smallest-cost edge from the heap
+        auto [c, u] = pq.top();
         pq.pop();
 
-        if(visited[u]) continue;
+        /// Skip if city already included in MST
+        if (visited[u]) continue;
 
+        /// Include city u in MST
         visited[u] = true;
-        totalCost += c;
-        visitedCount++;
+        totalCost += c;  // Add edge cost to total
+        visitedCount++;  // Increment count of cities in MST
 
-        for(auto &[v,w]: adj[u]){
-            if(!visited[v]){
-                pq.push({w,v});
+        /// Push all edges from newly included city u to the heap
+        for (auto &[v, w] : adj[u]) {
+            if (!visited[v]) {
+                pq.push({w, v});
             }
         }
     }
 
-    if(visitedCount != n) return -1;
+    /// --- Step 5: Check if all cities are connected
+    /// If not all cities were visited, the graph is disconnected → return -1
+    if (visitedCount != n) return -1;
+
+    /// --- Step 6: Return total MST cost
     return totalCost;
+
+    /**
+    EXAMPLE:
+
+    n = 3 cities (0,1,2)
+    m = 3 roads: roadData = {
+        {0, 1, 1, 0},  // cost = 1*goldRate + 0*silverRate
+        {1, 2, 1, 0},  // cost = 1*goldRate + 0*silverRate
+        {0, 2, 10, 0}  // cost = 10*goldRate + 0*silverRate
+    }
+    goldRate = 10
+    silverRate = 0
+
+    Step-by-step execution:
+
+    1. Build adjacency list (compute actual costs):
+       adj[0] = {(1,10), (2,100)}
+       adj[1] = {(0,10), (2,10)}
+       adj[2] = {(1,10), (0,100)}
+
+    2. Start MST at city 0, priority queue pq = {(0,0)}
+
+    3. Pop (0,0) → visit city 0, totalCost = 0
+       Push edges from 0 → pq = {(10,1),(100,2)}
+
+    4. Pop (10,1) → visit city 1, totalCost = 10
+       Push edges from 1 → pq = {(10,2),(100,2)}
+       (edge to 0 ignored since 0 is already visited)
+
+    5. Pop (10,2) → visit city 2, totalCost = 20
+       Push edges from 2 → pq = {(100,2)}
+       (edges to visited cities ignored)
+
+    6. All cities visited → MST complete
+       Return totalCost = 20
+
+    Notes:
+    - Only the smallest-cost edges that connect unvisited nodes are chosen.
+    */
 }
+
 
 // === All-Pairs Shortest Path + Sum in Binary ===
 //
