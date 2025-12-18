@@ -244,27 +244,32 @@ public:
 
         // Traverse from highest level down to level 0
         for (int i = maxLevel; i >= 0; i--) {
-            // Move forward while:
-            // 1. There's a next node at this level, AND
-            // 2. newNode should NOT come before the next node (based on ordering rules)
-            while (current->forward[i] != nullptr &&
-                   !shouldInsertBefore(newNode, current->forward[i])) {
-                current = current->forward[i];  // Move to next node at this level
+            while (current->forward[i] != nullptr) {
+                SkipListNode* next = current->forward[i];
+                // Move forward while:
+                // 1. next has higher score OR
+                // 2. same score but lower playerID (tie-break)
+                if (next->score > finalScore ||
+                    (next->score == finalScore && next->playerID < playerID)) {
+                    current = next;
+                } else {
+                    break; // Found insertion point
+                }
             }
-            // When loop exits, current is the node that should point to newNode at level i
             update[i] = current;
         }
 
         /// Step 4: Insert newNode at all levels from 0 to nodeLevel
         /// For each level i where i <= nodeLevel:
         ///   1. newNode's forward[i] points to what update[i] was pointing to
-        ///   2. update[i]'s forward[i] now points to newNode
+        ///   2. update[i]->forward[i] now points to newNode
         for (int i = 0; i <= nodeLevel; i++) {
             newNode->forward[i] = update[i]->forward[i];  // Step 1
             update[i]->forward[i] = newNode;              // Step 2
         }
         // For levels > nodeLevel, newNode doesn't exist, so no updates needed
     }
+
 
     /// Removes a player from the leaderboard
     /// Time Complexity: O(n) for linear scan (as allowed) + O(log n) for pointer updates
