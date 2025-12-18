@@ -78,7 +78,7 @@ void testSumMinDistancesBinary() {
     // Disconnected graph
     {
         vector<vector<int>> roads = {{0,1,2},{0,2,8}};
-        cout << nav.sumMinDistancesBinary(3, roads) << endl; // 1010
+        cout << nav.sumMinDistancesBinary(3, roads) << endl; // 10100
     }
 
     // Multiple edges (min chosen)

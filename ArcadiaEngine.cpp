@@ -1070,9 +1070,10 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
         // Ignore invalid node indices
         if (u < 0 || u >= n || v < 0 || v >= n) continue;
 
-        // Since the graph is undirected, update both directions
-        // Keep the smallest weight if multiple edges exist
+        // If multiple roads exist between same nodes(undirected nodes),
+        // keep the smallest distance
         dist[u][v] = min(dist[u][v], w);
+        dist[v][u] = min(dist[v][u], w);
     }
 
     // =========================
