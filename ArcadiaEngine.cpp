@@ -17,7 +17,7 @@ using namespace std;
 // PART A: DATA STRUCTURES (Concrete Implementations)
 // =========================================================
 
-///PlayerTable (Mid square - Double Hashing)
+// --- 1.PlayerTable (Double Hashing) ---
 class ConcretePlayerTable : public PlayerTable {
 private:
     /// Structure to represent each player entry in the hash table
@@ -271,7 +271,6 @@ public:
         // For levels > nodeLevel, newNode doesn't exist, so no updates needed
     }
 
-
     /// Removes a player from the leaderboard
     /// Time Complexity: O(n) for linear scan (as allowed) + O(log n) for pointer updates
     /// Parameters:
@@ -380,8 +379,7 @@ public:
     }
 };
 
-// --- AuctionTree (Red-Black Tree) ---
-
+// 3. --- AuctionTree (Red-Black Tree) ---
 class ConcreteAuctionTree : public AuctionTree {
 private:
     struct RBNode {
@@ -737,6 +735,7 @@ int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
     return (int)diff;
 }
 
+// --- maximizeCarryValue ---
 int InventorySystem::maximizeCarryValue(int capacity,vector<pair<int, int>>& items) {
     int n = items.size();
     if (n == 0 || capacity == 0) return 0;
@@ -772,7 +771,6 @@ long long InventorySystem::countStringPossibilities(string s) {
     /// MOD to prevent integer overflow for very large numbers of combinations
     const int MOD = 1e9 + 7;
     int n = s.size();
-
 
     /// Raw 'w' or 'm' cannot be produced by broken keyboard
     for (char c : s) {
@@ -1148,10 +1146,6 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
 // =========================================================
 // PART D: SERVER KERNEL (Greedy)
 // =========================================================
-
-
-
-
 int ServerKernel::minIntervals(vector<char>& tasks, int n) {
     if (tasks.empty()) return 0;
     // A,A,A,B,B,B,C   n=0
@@ -1161,7 +1155,6 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
     // Step 1: Count frequency of each task (A-Z)
     // We use an array of size 26 since tasks are uppercase English letters
     vector<int> freq(26, 0);
-
 
     // Count occurrences of each task
     for (char task : tasks) {
@@ -1182,7 +1175,6 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
         }
     }
 
-
     // Step 4: Calculate minimum intervals using the scheduling formula
     // Formula explanation:
     // (max_freq - 1) * (n + 1) + count_max_freq
@@ -1199,7 +1191,6 @@ int ServerKernel::minIntervals(vector<char>& tasks, int n) {
 
 }
 
-
 // =========================================================
 // FACTORY FUNCTIONS (Required for Testing)
 // =========================================================
@@ -1208,11 +1199,9 @@ extern "C" {
     PlayerTable* createPlayerTable() { 
         return new ConcretePlayerTable(); 
     }
-
     Leaderboard* createLeaderboard() { 
         return new ConcreteLeaderboard(); 
     }
-
     AuctionTree* createAuctionTree() { 
         return new ConcreteAuctionTree(); 
     }
