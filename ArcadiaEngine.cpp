@@ -244,6 +244,7 @@ public:
 
         // Traverse from highest level down to level 0
         for (int i = maxLevel; i >= 0; i--) {
+            // ------------------ MODIFIED LOOP ------------------
             while (current->forward[i] != nullptr) {
                 SkipListNode* next = current->forward[i];
                 // Move forward while:
