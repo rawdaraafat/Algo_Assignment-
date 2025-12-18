@@ -1154,6 +1154,7 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
 
 
 int ServerKernel::minIntervals(vector<char>& tasks, int n) {
+    if (tasks.empty()) return 0;
     // A,A,A,B,B,B,C   n=0
     // If cooling time is 0, we can execute all tasks consecutively
     if (n == 0) return tasks.size();
