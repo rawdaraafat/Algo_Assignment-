@@ -55,7 +55,13 @@ public:
         for (int i = 0; i < 101; i++) {
             int index = (h1 + i * h2) % 101; // Double hashing formula
 
-            /// Empty slot → insert new key
+            /// Case 1: Key already exists → update value
+            if (table[index].used && table[index].key == playerID) {
+                table[index].value = name; // update name
+                return;
+            }
+
+            /// Case 2: Empty slot → insert new key
             if (!table[index].used) {
                 table[index].key = playerID;
                 table[index].value = name;
