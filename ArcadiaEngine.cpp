@@ -33,27 +33,10 @@ private:
     /// Fixed-size hash table array (size 101 as required)
     Player table[101];
 
-    /// MID-SQUARE HASH FUNCTION
+    /// Division Method (MANDATORY)
     /// Computes primary hash index based on player's shirt number
-    int midSquare(int key) {
-        int sq = key * key;          // Step 1: square the key
-        string s = to_string(sq);    // Step 2: convert to string to extract digits
-        int n = s.size();
-
-        int mid = n / 2;
-        int start, len;
-
-        /// Step 3: extract middle digits at r = 2 (2 for even length, 3 for odd)
-        if (n % 2 == 0) {
-            start = mid - 1;
-            len = 2;
-        } else {
-            start = max(0, mid - 1);
-            len = 3;
-        }
-
-        int midDigits = stoi(s.substr(start, len));  // Convert substring to integer
-        return midDigits % 101;                      // Ensure index fits table size
+    int hash1(int key) {
+        return key % 101;
     }
 
     /// SECOND HASH FUNCTION (FOR DOUBLE HASHING)
@@ -66,7 +49,7 @@ public:
     /// INSERT FUNCTION USING DOUBLE HASHING
     /// Inserts a playerID-name pair into the hash table
     void insert(int playerID, string name) override {
-        int h1 = midSquare(playerID); // Primary hash
+        int h1 = hash1(playerID); // Primary hash
         int h2 = hash2(playerID);     // Secondary hash for collision resolution
 
         /// Try up to 101 slots (entire table)
@@ -95,7 +78,7 @@ public:
     /// SEARCH FUNCTION USING DOUBLE HASHING
     /// Looks for a player by shirt number
     string search(int playerID) override {
-        int h1 = midSquare(playerID); // Primary hash
+        int h1 = hash1(playerID); // Primary hash
         int h2 = hash2(playerID);     // Secondary hash for probing
 
         /// Try up to 101 slots
@@ -109,7 +92,7 @@ public:
                 return table[index].value;
         }
 
-        return ""; // Not found after full probing
+        return "Not found\n"; // Not found after full probing
     }
 
     /// DISPLAY FUNCTION
@@ -391,7 +374,7 @@ public:
     }
 };
 
-// ---  AuctionTree (Red-Black Tree) ---
+// --- AuctionTree (Red-Black Tree) ---
 
 class ConcreteAuctionTree : public AuctionTree {
 private:
@@ -404,55 +387,60 @@ private:
         RBNode* parent;
 
         RBNode(int i, int c)
-            : id(i), cost(c), isRed(true),
-              left(nullptr), right(nullptr), parent(nullptr) {}
+                : id(i), cost(c), isRed(true),
+                  left(nullptr), right(nullptr), parent(nullptr) {}
     };
 
     RBNode* treeRoot;
     RBNode* NIL_NODE;
 
-    // Rotations
-    void rotateLeft(RBNode* current) {
-        RBNode* rightChild = current->right;
-        current->right = rightChild->left;
-        if (rightChild->left != NIL_NODE)
-            rightChild->left->parent = current;
+    // ================= ROTATIONS =================
+    void rotateLeft(RBNode* x) {
+        RBNode* y = x->right;
+        x->right = y->left;
 
-        rightChild->parent = current->parent;
-        if (current->parent == NIL_NODE)
-            treeRoot = rightChild;
-        else if (current == current->parent->left)
-            current->parent->left = rightChild;
+        if (y->left != NIL_NODE)
+            y->left->parent = x;
+
+        y->parent = x->parent;
+
+        if (x->parent == NIL_NODE)
+            treeRoot = y;
+        else if (x == x->parent->left)
+            x->parent->left = y;
         else
-            current->parent->right = rightChild;
+            x->parent->right = y;
 
-        rightChild->left = current;
-        current->parent = rightChild;
+        y->left = x;
+        x->parent = y;
     }
 
-    void rotateRight(RBNode* current) {
-        RBNode* leftChild = current->left;
-        current->left = leftChild->right;
-        if (leftChild->right != NIL_NODE)
-            leftChild->right->parent = current;
+    void rotateRight(RBNode* x) {
+        RBNode* y = x->left;
+        x->left = y->right;
 
-        leftChild->parent = current->parent;
-        if (current->parent == NIL_NODE)
-            treeRoot = leftChild;
-        else if (current == current->parent->right)
-            current->parent->right = leftChild;
+        if (y->right != NIL_NODE)
+            y->right->parent = x;
+
+        y->parent = x->parent;
+
+        if (x->parent == NIL_NODE)
+            treeRoot = y;
+        else if (x == x->parent->right)
+            x->parent->right = y;
         else
-            current->parent->left = leftChild;
+            x->parent->left = y;
 
-        leftChild->right = current;
-        current->parent = leftChild;
+        y->right = x;
+        x->parent = y;
     }
 
-    //Insert
+    // ================= INSERT FIX =================
     void fixAfterInsert(RBNode* node) {
         while (node->parent->isRed) {
             if (node->parent == node->parent->parent->left) {
                 RBNode* uncle = node->parent->parent->right;
+
                 if (uncle->isRed) {
                     node->parent->isRed = false;
                     uncle->isRed = false;
@@ -469,6 +457,7 @@ private:
                 }
             } else {
                 RBNode* uncle = node->parent->parent->left;
+
                 if (uncle->isRed) {
                     node->parent->isRed = false;
                     uncle->isRed = false;
@@ -488,44 +477,52 @@ private:
         treeRoot->isRed = false;
     }
 
-    // Search ID (O(N))
-    RBNode* findNodeByID(RBNode* start, int targetID) {
-        if (start == NIL_NODE) return nullptr;
-        if (start->id == targetID) return start;
+    // ================= O(N) SEARCH BY ID =================
+    RBNode* findNodeByID(RBNode* node, int targetID) {
+        if (node == NIL_NODE)
+            return NIL_NODE;
 
-        RBNode* found = findNodeByID(start->left, targetID);
-        if (found) return found;
-        return findNodeByID(start->right, targetID);
+        if (node->id == targetID)
+            return node;
+
+        RBNode* found = findNodeByID(node->left, targetID);
+        if (found != NIL_NODE)
+            return found;
+
+        return findNodeByID(node->right, targetID);
     }
 
-
-    void replaceNode(RBNode* oldNode, RBNode* newNode) {
-        if (oldNode->parent == NIL_NODE)
-            treeRoot = newNode;
-        else if (oldNode == oldNode->parent->left)
-            oldNode->parent->left = newNode;
+    // ================= DELETE HELPERS =================
+    void replaceNode(RBNode* u, RBNode* v) {
+        if (u->parent == NIL_NODE)
+            treeRoot = v;
+        else if (u == u->parent->left)
+            u->parent->left = v;
         else
-            oldNode->parent->right = newNode;
-        newNode->parent = oldNode->parent;
+            u->parent->right = v;
+
+        v->parent = u->parent;
     }
 
-    RBNode* smallestNode(RBNode* node) {
+    RBNode* minimum(RBNode* node) {
         while (node->left != NIL_NODE)
             node = node->left;
         return node;
     }
 
-    // Delete
+    // ================= DELETE FIX =================
     void fixAfterDelete(RBNode* node) {
         while (node != treeRoot && !node->isRed) {
             if (node == node->parent->left) {
                 RBNode* sibling = node->parent->right;
+
                 if (sibling->isRed) {
                     sibling->isRed = false;
                     node->parent->isRed = true;
                     rotateLeft(node->parent);
                     sibling = node->parent->right;
                 }
+
                 if (!sibling->left->isRed && !sibling->right->isRed) {
                     sibling->isRed = true;
                     node = node->parent;
@@ -536,6 +533,7 @@ private:
                         rotateRight(sibling);
                         sibling = node->parent->right;
                     }
+
                     sibling->isRed = node->parent->isRed;
                     node->parent->isRed = false;
                     sibling->right->isRed = false;
@@ -544,12 +542,14 @@ private:
                 }
             } else {
                 RBNode* sibling = node->parent->left;
+
                 if (sibling->isRed) {
                     sibling->isRed = false;
                     node->parent->isRed = true;
                     rotateRight(node->parent);
                     sibling = node->parent->left;
                 }
+
                 if (!sibling->left->isRed && !sibling->right->isRed) {
                     sibling->isRed = true;
                     node = node->parent;
@@ -560,6 +560,7 @@ private:
                         rotateLeft(sibling);
                         sibling = node->parent->left;
                     }
+
                     sibling->isRed = node->parent->isRed;
                     node->parent->isRed = false;
                     sibling->left->isRed = false;
@@ -572,78 +573,86 @@ private:
     }
 
 public:
+    // ================= CONSTRUCTOR =================
     ConcreteAuctionTree() {
         NIL_NODE = new RBNode(-1, -1);
         NIL_NODE->isRed = false;
-        NIL_NODE->left = NIL_NODE->right = NIL_NODE->parent = NIL_NODE;
+        NIL_NODE->left = NIL_NODE;
+        NIL_NODE->right = NIL_NODE;
+        NIL_NODE->parent = NIL_NODE;
+
         treeRoot = NIL_NODE;
     }
 
-    // insertitem function
+    // ================= INSERT =================
     void insertItem(int itemID, int price) override {
         RBNode* newNode = new RBNode(itemID, price);
         newNode->left = newNode->right = newNode->parent = NIL_NODE;
 
-        RBNode* parentNode = NIL_NODE;
+        RBNode* parent = NIL_NODE;
         RBNode* current = treeRoot;
 
         while (current != NIL_NODE) {
-            parentNode = current;
+            parent = current;
             if (price < current->cost ||
-               (price == current->cost && itemID < current->id))
+                (price == current->cost && itemID < current->id))
                 current = current->left;
             else
                 current = current->right;
         }
 
-        newNode->parent = parentNode;
-        if (parentNode == NIL_NODE)
+        newNode->parent = parent;
+
+        if (parent == NIL_NODE)
             treeRoot = newNode;
-        else if (price < parentNode->cost ||
-                (price == parentNode->cost && itemID < parentNode->id))
-            parentNode->left = newNode;
+        else if (price < parent->cost ||
+                 (price == parent->cost && itemID < parent->id))
+            parent->left = newNode;
         else
-            parentNode->right = newNode;
+            parent->right = newNode;
 
         fixAfterInsert(newNode);
     }
 
+    // ================= DELETE =================
     void deleteItem(int itemID) override {
         RBNode* target = findNodeByID(treeRoot, itemID);
-        if (!target) return;
+        if (target == NIL_NODE)
+            return;
 
-        RBNode* nodeToDelete = target;
-        RBNode* fixNode;
-        bool wasRed = nodeToDelete->isRed;
+        RBNode* y = target;
+        RBNode* x;
+        bool yOriginalRed = y->isRed;
 
         if (target->left == NIL_NODE) {
-            fixNode = target->right;
+            x = target->right;
             replaceNode(target, target->right);
         } else if (target->right == NIL_NODE) {
-            fixNode = target->left;
+            x = target->left;
             replaceNode(target, target->left);
         } else {
-            nodeToDelete = smallestNode(target->right);
-            wasRed = nodeToDelete->isRed;
-            fixNode = nodeToDelete->right;
+            y = minimum(target->right);
+            yOriginalRed = y->isRed;
+            x = y->right;
 
-            if (nodeToDelete->parent == target)
-                fixNode->parent = nodeToDelete;
+            if (y->parent == target)
+                x->parent = y;
             else {
-                replaceNode(nodeToDelete, nodeToDelete->right);
-                nodeToDelete->right = target->right;
-                nodeToDelete->right->parent = nodeToDelete;
+                replaceNode(y, y->right);
+                y->right = target->right;
+                y->right->parent = y;
             }
 
-            replaceNode(target, nodeToDelete);
-            nodeToDelete->left = target->left;
-            nodeToDelete->left->parent = nodeToDelete;
-            nodeToDelete->isRed = target->isRed;
+            replaceNode(target, y);
+            y->left = target->left;
+            y->left->parent = y;
+            y->isRed = target->isRed;
         }
 
         delete target;
-        if (!wasRed)
-            fixAfterDelete(fixNode);
+
+        if (!yOriginalRed)
+            fixAfterDelete(x);
     }
 };
 
@@ -757,6 +766,17 @@ long long InventorySystem::countStringPossibilities(string s) {
     /// MOD to prevent integer overflow for very large numbers of combinations
     const int MOD = 1e9 + 7;
     int n = s.size();
+
+
+    /// Raw 'w' or 'm' cannot be produced by broken keyboard
+    for (char c : s) {
+        if (c == 'w' || c == 'm')
+            return 0;
+    }
+
+    ///EMPTY STRING
+    if (n == 0)
+        return 1;
 
     /// dp[i] stores the number of ways to decode first i characters of string
     vector<long long> dp(n + 1, 0);
@@ -903,6 +923,11 @@ bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, i
 /// roadData[i] = {u, v, goldCost, silverCost} for each road
 long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long long silverRate,
                                        vector<vector<int>>& roadData) {
+
+    /// EDGE CASE 1: No cities
+    /// Cost to connect nothing = 0
+    if (n == 0) return 0;
+
     /// --- Step 1: Build adjacency list
     /// Each city (node) has a vector of pairs {neighbor, cost}
     /// This allows fast access to all connected roads from a city
@@ -1002,7 +1027,6 @@ long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long lo
     - Only the smallest-cost edges that connect unvisited nodes are chosen.
     */
 }
-
 
 // === All-Pairs Shortest Path + Sum in Binary ===
 //

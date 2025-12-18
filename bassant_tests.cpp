@@ -6,149 +6,214 @@
 using namespace std;
 
 /// ===================================================
-/// PLAYER TABLE TESTS
+/// PLAYER TABLE TESTS (Division + Double Hashing)
 /// ===================================================
 void testPlayerTable() {
     cout << "\n[TEST] PlayerTable (Double Hashing)\n";
 
     ConcretePlayerTable table;
 
+    // -------------------------------
     // Basic insert & search
+    // -------------------------------
     table.insert(10, "Alice");
     table.insert(20, "Bob");
-    table.display();
 
-    cout << table.search(10)<< endl;
-    cout << table.search(20)<< endl;
-    cout << table.search(30)<< endl;
+    cout << table.search(10) << endl;   // Alice
+    cout << table.search(20) << endl;   // Bob
+    cout << table.search(30) << endl;   // "" (not found)
 
+    // -------------------------------
+    // Update existing ID (NOT collision)
+    // -------------------------------
+    table.insert(10, "AliceUpdated");
+    cout << table.search(10) << endl;   // AliceUpdated
+
+    // -------------------------------
     // Collision-heavy inputs
+    // (same hash1 = key % 101)
+    // -------------------------------
     table.insert(11, "A");
-    table.insert(111, "B");
-    table.insert(211, "C");
-    table.display();
+    table.insert(112, "B");   // 11 % 101 == 112 % 101
+    table.insert(213, "C");   // collision chain
 
-    cout << table.search(11)<< endl;
-    cout << table.search(111)<< endl;
-    cout << table.search(211)<< endl;
+    cout << table.search(11) << endl;    // A
+    cout << table.search(112) << endl;   // B
+    cout << table.search(213) << endl;   // C
 
+    // -------------------------------
     // Edge values
+    // -------------------------------
     table.insert(0, "Zero");
     table.insert(100000, "Big");
-    table.display();
 
-    cout << table.search(0)<< endl;
-    cout << table.search(100000)<< endl;
+    cout << table.search(0) << endl;         // Zero
+    cout << table.search(100000) << endl;    // Big
 
-    // Fill all 101 slots with UNIQUE keys
-    for (int i = 1; i < 300; i+=3) {
-        table.insert(i , "Player" + to_string(i));
+    // -------------------------------
+    // Fill table to capacity (101 slots)
+    // -------------------------------
+    for (int i = 1; i <= 300; i += 3) {
+        table.insert(i, "Player" + to_string(i));
     }
-    table.display();
 
-    cout << "PlayerTable tests passed\n";
+    // -------------------------------
+    // This insert SHOULD fail
+    // -------------------------------
+    table.insert(999999, "Overflow"); // prints: Table is Full
+
+    cout << "PlayerTable tests completed\n";
 }
 
 /// ===================================================
-/// STRING DECODING TESTS
+/// STRING DECODING TESTS (DP Autocorrect)
 /// ===================================================
 void testStringDecoding() {
     cout << "\n[TEST] String Decoding (DP)\n";
 
     InventorySystem inv;
 
+    // -------------------------------
     // Empty string
-    cout << inv.countStringPossibilities("")<< endl;
+    // -------------------------------
+    cout << inv.countStringPossibilities("") << endl;   // 1
 
-    // Single character
-    cout << inv.countStringPossibilities("u")<< endl;
-    cout << inv.countStringPossibilities("n")<< endl;
-    cout << inv.countStringPossibilities("a")<< endl;
+    // -------------------------------
+    // Single characters
+    // -------------------------------
+    cout << inv.countStringPossibilities("u") << endl;  // 1
+    cout << inv.countStringPossibilities("n") << endl;  // 1
+    cout << inv.countStringPossibilities("a") << endl;  // 1
 
+    // -------------------------------
+    // Invalid characters
+    // -------------------------------
+    cout << inv.countStringPossibilities("w") << endl;  // 0
+    cout << inv.countStringPossibilities("m") << endl;  // 0
+    cout << inv.countStringPossibilities("unwm") << endl; // 0
+
+    // -------------------------------
     // Simple merge cases
-    cout << inv.countStringPossibilities("uu")<< endl; // u u | uu
-    cout << inv.countStringPossibilities("nn")<< endl; // n n | nn
+    // -------------------------------
+    cout << inv.countStringPossibilities("uu") << endl; // 2
+    cout << inv.countStringPossibilities("nn") << endl; // 2
 
+    // -------------------------------
     // Mixed cases
-    cout << inv.countStringPossibilities("uunu")<< endl;
-    cout << inv.countStringPossibilities("unun")<< endl;
+    // -------------------------------
+    cout << inv.countStringPossibilities("uunu") << endl; // 2
+    cout << inv.countStringPossibilities("unun") << endl; // 1
 
-    // Edge: no valid merges at all
-    cout << inv.countStringPossibilities("abcde")<< endl;
+    // -------------------------------
+    // No merge possible
+    // -------------------------------
+    cout << inv.countStringPossibilities("abcde") << endl; // 1
 
-    // Large input (performance O(n))
+    // -------------------------------
+    // Large input (O(n) performance)
+    // -------------------------------
     string big(100000, 'u');
-    cout << inv.countStringPossibilities(big)<< endl;
+    cout << inv.countStringPossibilities(big) << endl;
 
-    cout << "String Decoding tests passed\n";
+    cout << "String Decoding tests completed\n";
 }
 
 /// ===================================================
-/// MST (PRIM) TESTS
+/// MST (PRIM) TESTS — PART C
 /// ===================================================
 void testWorldNavigator() {
     cout << "\n[TEST] WorldNavigator (Prim MST)\n";
 
     WorldNavigator nav;
 
-    // Single node
+    // -------------------------------------------------
+    // 1. No cities
+    // -------------------------------------------------
     {
         vector<vector<int>> roads;
-        cout << nav.minBribeCost(1, 0, 5, 5, roads)<< endl;
+        cout << nav.minBribeCost(0, 0, 10, 10, roads) << endl; // expected: 0
     }
 
-    // Simple connected graph
+    // -------------------------------------------------
+    // 2. Single city (no roads needed)
+    // -------------------------------------------------
+    {
+        vector<vector<int>> roads;
+        cout << nav.minBribeCost(1, 0, 5, 5, roads) << endl; // expected: 0
+    }
+
+    // -------------------------------------------------
+    // 3. Simple connected graph (example from assignment)
+    // -------------------------------------------------
     {
         vector<vector<int>> roads = {
-                {0, 1, 1, 0},
-                {1, 2, 1, 0},
-                {0, 2, 10, 0}
+                {0, 1, 10, 0},
+                {1, 2, 5, 0},
+                {0, 2, 20, 0}
         };
-        cout << nav.minBribeCost(3, 3, 10, 0, roads)<< endl;
+        cout << nav.minBribeCost(3, 3, 1, 1, roads) << endl; // expected: 15
     }
 
-    // Disconnected graph
+    // -------------------------------------------------
+    // 4. Disconnected graph → MST impossible
+    // -------------------------------------------------
     {
         vector<vector<int>> roads = {
                 {0, 1, 1, 0},
                 {2, 3, 1, 0}
         };
-        cout << nav.minBribeCost(4, 2, 10, 0, roads)<< endl;
+        cout << nav.minBribeCost(4, 2, 10, 0, roads) << endl; // expected: -1
     }
 
-    // Zero cost edges
+    // -------------------------------------------------
+    // 5. Zero-cost edges (goldRate = silverRate = 0)
+    // -------------------------------------------------
     {
         vector<vector<int>> roads = {
                 {0, 1, 5, 5},
-                {1, 2, 5, 5}
+                {1, 2, 7, 9}
         };
-        cout << nav.minBribeCost(3, 2, 0, 0, roads)<< endl;
+        cout << nav.minBribeCost(3, 2, 0, 0, roads) << endl; // expected: 0
     }
 
-    // Multiple edges between same nodes
+    // -------------------------------------------------
+    // 6. Multiple edges between same cities
+    // (Prim should pick cheaper one)
+    // -------------------------------------------------
     {
         vector<vector<int>> roads = {
                 {0, 1, 10, 0},
                 {0, 1, 1, 0}
         };
-        cout << nav.minBribeCost(2, 2, 1, 0, roads)<< endl;
+        cout << nav.minBribeCost(2, 2, 1, 0, roads) << endl; // expected: 1
     }
 
-    // No cities
-    {
-        vector<vector<int>> roads;
-        cout << nav.minBribeCost(0, 0, 10, 10, roads)<< endl;
-    }
-
-    // Large values (overflow safety)
+    // -------------------------------------------------
+    // 7. Large weights (overflow safety)
+    // -------------------------------------------------
     {
         vector<vector<int>> roads = {
                 {0, 1, 1000000000, 1000000000}
         };
-        cout << nav.minBribeCost(2, 1, 1000000000LL, 1000000000LL, roads) << endl;
+        cout << nav.minBribeCost(
+                2, 1,
+                1000000000LL,
+                1000000000LL,
+                roads
+        ) << endl; // expected: 2000000000000000000
     }
 
-    cout << "WorldNavigator tests passed\n";
+    // -------------------------------------------------
+    // 8. City index boundary correctness
+    // -------------------------------------------------
+    {
+        vector<vector<int>> roads = {
+                {0, 4, 1, 0}
+        };
+        cout << nav.minBribeCost(5, 1, 10, 0, roads) << endl; // expected: -1
+    }
+
+    cout << "WorldNavigator tests completed\n";
 }
 
 int main() {
