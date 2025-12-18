@@ -17,7 +17,7 @@ using namespace std;
 // PART A: DATA STRUCTURES (Concrete Implementations)
 // =========================================================
 
-///PlayerTable (Double Hashing)
+///PlayerTable (Mid square - Double Hashing)
 class ConcretePlayerTable : public PlayerTable {
 private:
     /// Structure to represent each player entry in the hash table
@@ -33,9 +33,27 @@ private:
     /// Fixed-size hash table array (size 101 as required)
     Player table[101];
 
-    /// PRIMARY HASH FUNCTION
-    int hash1(int key) {
-        return key % 101;
+    /// MID-SQUARE HASH FUNCTION
+    /// Computes primary hash index based on player's shirt number
+    int midSquare(int key) {
+        int sq = key * key;          // Step 1: square the key
+        string s = to_string(sq);    // Step 2: convert to string to extract digits
+        int n = s.size();
+
+        int mid = n / 2;
+        int start, len;
+
+        /// Step 3: extract middle digits at r = 2 (2 for even length, 3 for odd)
+        if (n % 2 == 0) {
+            start = mid - 1;
+            len = 2;
+        } else {
+            start = max(0, mid - 1);
+            len = 3;
+        }
+
+        int midDigits = stoi(s.substr(start, len));  // Convert substring to integer
+        return midDigits % 101;                      // Ensure index fits table size
     }
 
     /// SECOND HASH FUNCTION (FOR DOUBLE HASHING)
@@ -48,8 +66,8 @@ public:
     /// INSERT FUNCTION USING DOUBLE HASHING
     /// Inserts a playerID-name pair into the hash table
     void insert(int playerID, string name) override {
-        int h1 = hash1(playerID); // Primary hash
-        int h2 = hash2(playerID); // Secondary hash for collision resolution
+        int h1 = midSquare(playerID); // Primary hash
+        int h2 = hash2(playerID);     // Secondary hash for collision resolution
 
         /// Try up to 101 slots (entire table)
         for (int i = 0; i < 101; i++) {
@@ -77,14 +95,14 @@ public:
     /// SEARCH FUNCTION USING DOUBLE HASHING
     /// Looks for a player by shirt number
     string search(int playerID) override {
-        int h1 = hash1(playerID); // Primary hash
-        int h2 = hash2(playerID); // Secondary hash for probing
+        int h1 = midSquare(playerID); // Primary hash
+        int h2 = hash2(playerID);     // Secondary hash for probing
 
         /// Try up to 101 slots
         for (int i = 0; i < 101; i++) {
             int index = (h1 + i * h2) % 101;
 
-            if (!table[index].used) // Empty slot → player not found
+            if (!table[index].used)      // Empty slot → player not found
                 return "";
 
             if (table[index].key == playerID) // Found the player
@@ -133,7 +151,6 @@ private:
     SkipListNode* head;    // Head node of the skip list (sentinel node)
     int maxLevel;          // Maximum allowed level in the skip list
     float probability;     // Probability for random level generation (typically 0.5)
-    int currentMaxLevel;   // Tracks the current top level in the skip list (for efficiency)
 
     /// Simple random number generator for determining node levels
     /// Returns: A random level between 0 and maxLevel-1
@@ -180,7 +197,6 @@ public:
     ConcreteLeaderboard() {
         maxLevel = 16;            // Maximum of 16 levels (can be adjusted based on expected size)
         probability = 0.5;        // 50% chance to go to next level
-        currentMaxLevel = 0;      // Initially, top level is 0
         // Create head sentinel node with minimum possible values
         // INT_MIN ensures it's always first in the list
         head = new SkipListNode(-1, INT_MIN, maxLevel);
@@ -200,31 +216,6 @@ public:
         }
 
         delete head;  // Finally delete the head sentinel node
-    }
-
-    /// Search by score - O(log n) average
-    /// Returns playerID of first player with given score (lowest ID), or -1 if not found
-    int searchByScore(int score) {
-        SkipListNode* current = head;
-        SkipListNode* candidate = nullptr;  // Keep track of lowest ID with exact score
-
-        for (int i = currentMaxLevel; i >= 0; i--) {
-            while (current->forward[i] != nullptr &&
-                   current->forward[i]->score >= score) {
-                if (current->forward[i]->score == score) {
-                    // Found a node with exact score
-                    if (candidate == nullptr || current->forward[i]->playerID < candidate->playerID) {
-                        candidate = current->forward[i];  // Track node with lowest ID
-                    }
-                }
-                current = current->forward[i];
-            }
-        }
-
-        // Also check level 0 in case candidate is not updated
-        if (candidate != nullptr) return candidate->playerID;
-
-        return -1;
     }
 
     /// Adds or updates a player's score in the leaderboard
@@ -269,7 +260,7 @@ public:
         current = head;  // Start search from head
 
         // Traverse from highest level down to level 0
-        for (int i = currentMaxLevel; i >= 0; i--) {
+        for (int i = maxLevel; i >= 0; i--) {
             // Move forward while:
             // 1. There's a next node at this level, AND
             // 2. newNode should NOT come before the next node (based on ordering rules)
@@ -289,8 +280,7 @@ public:
             newNode->forward[i] = update[i]->forward[i];  // Step 1
             update[i]->forward[i] = newNode;              // Step 2
         }
-        // Update currentMaxLevel if new node introduces a higher level
-        if (nodeLevel > currentMaxLevel) currentMaxLevel = nodeLevel;
+        // For levels > nodeLevel, newNode doesn't exist, so no updates needed
     }
 
     /// Removes a player from the leaderboard
@@ -321,7 +311,7 @@ public:
         current = head;  // Start search from head
 
         // Traverse from highest level down to level 0
-        for (int i = currentMaxLevel; i >= 0; i--) {
+        for (int i = maxLevel; i >= 0; i--) {
             // Move forward while:
             // 1. There's a next node at this level, AND
             // 2. Next node is not the one we're deleting, AND
@@ -335,7 +325,15 @@ public:
             update[i] = current;
         }
 
-        /// Step 3: Remove node from skip list at all levels where it exists
+        /// Step 3: Verify we actually found the right node
+        /// This is a sanity check - current->forward[0] should be nodeToDelete
+        if (current->forward[0] != nodeToDelete) {
+            // This shouldn't happen if our linear scan was correct
+            // Could indicate a bug in the update[] finding logic
+            return;
+        }
+
+        /// Step 4: Remove node from skip list at all levels where it exists
         /// For each level from 0 to nodeToDelete->level:
         ///   1. Check if update[i] actually points to nodeToDelete
         ///   2. If yes, make update[i] point to nodeToDelete->forward[i]
@@ -349,11 +347,6 @@ public:
             }
             // Bypass nodeToDelete at this level
             update[i]->forward[i] = nodeToDelete->forward[i];
-        }
-
-        // Step 4: Adjust currentMaxLevel if necessary
-        while (currentMaxLevel > 0 && head->forward[currentMaxLevel] == nullptr) {
-            currentMaxLevel--;  // Reduce top level if empty
         }
 
         // Step 5: Free the memory allocated for the deleted node
@@ -384,7 +377,7 @@ public:
     /// Shows each level from highest to lowest with all nodes at that level
     void printList() {
         // Print from highest level down to level 0
-        for (int i = currentMaxLevel; i >= 0; i--) {
+        for (int i = maxLevel; i >= 0; i--) {
             cout << "Level " << i << ": ";
             SkipListNode* current = head->forward[i];  // Start from first node at this level
 
@@ -398,27 +391,259 @@ public:
     }
 };
 
-
-// --- 3. AuctionTree (Red-Black Tree) ---
+// ---  AuctionTree (Red-Black Tree) ---
 
 class ConcreteAuctionTree : public AuctionTree {
 private:
-    // TODO: Define your Red-Black Tree node structure
-    // Hint: Each node needs: id, price, color, left, right, parent pointers
+    struct RBNode {
+        int id;          // itemID
+        int cost;        // price
+        bool isRed;
+        RBNode* left;
+        RBNode* right;
+        RBNode* parent;
+
+        RBNode(int i, int c)
+            : id(i), cost(c), isRed(true),
+              left(nullptr), right(nullptr), parent(nullptr) {}
+    };
+
+    RBNode* treeRoot;
+    RBNode* NIL_NODE;
+
+    // Rotations
+    void rotateLeft(RBNode* current) {
+        RBNode* rightChild = current->right;
+        current->right = rightChild->left;
+        if (rightChild->left != NIL_NODE)
+            rightChild->left->parent = current;
+
+        rightChild->parent = current->parent;
+        if (current->parent == NIL_NODE)
+            treeRoot = rightChild;
+        else if (current == current->parent->left)
+            current->parent->left = rightChild;
+        else
+            current->parent->right = rightChild;
+
+        rightChild->left = current;
+        current->parent = rightChild;
+    }
+
+    void rotateRight(RBNode* current) {
+        RBNode* leftChild = current->left;
+        current->left = leftChild->right;
+        if (leftChild->right != NIL_NODE)
+            leftChild->right->parent = current;
+
+        leftChild->parent = current->parent;
+        if (current->parent == NIL_NODE)
+            treeRoot = leftChild;
+        else if (current == current->parent->right)
+            current->parent->right = leftChild;
+        else
+            current->parent->left = leftChild;
+
+        leftChild->right = current;
+        current->parent = leftChild;
+    }
+
+    //Insert
+    void fixAfterInsert(RBNode* node) {
+        while (node->parent->isRed) {
+            if (node->parent == node->parent->parent->left) {
+                RBNode* uncle = node->parent->parent->right;
+                if (uncle->isRed) {
+                    node->parent->isRed = false;
+                    uncle->isRed = false;
+                    node->parent->parent->isRed = true;
+                    node = node->parent->parent;
+                } else {
+                    if (node == node->parent->right) {
+                        node = node->parent;
+                        rotateLeft(node);
+                    }
+                    node->parent->isRed = false;
+                    node->parent->parent->isRed = true;
+                    rotateRight(node->parent->parent);
+                }
+            } else {
+                RBNode* uncle = node->parent->parent->left;
+                if (uncle->isRed) {
+                    node->parent->isRed = false;
+                    uncle->isRed = false;
+                    node->parent->parent->isRed = true;
+                    node = node->parent->parent;
+                } else {
+                    if (node == node->parent->left) {
+                        node = node->parent;
+                        rotateRight(node);
+                    }
+                    node->parent->isRed = false;
+                    node->parent->parent->isRed = true;
+                    rotateLeft(node->parent->parent);
+                }
+            }
+        }
+        treeRoot->isRed = false;
+    }
+
+    // Search ID (O(N))
+    RBNode* findNodeByID(RBNode* start, int targetID) {
+        if (start == NIL_NODE) return nullptr;
+        if (start->id == targetID) return start;
+
+        RBNode* found = findNodeByID(start->left, targetID);
+        if (found) return found;
+        return findNodeByID(start->right, targetID);
+    }
+
+
+    void replaceNode(RBNode* oldNode, RBNode* newNode) {
+        if (oldNode->parent == NIL_NODE)
+            treeRoot = newNode;
+        else if (oldNode == oldNode->parent->left)
+            oldNode->parent->left = newNode;
+        else
+            oldNode->parent->right = newNode;
+        newNode->parent = oldNode->parent;
+    }
+
+    RBNode* smallestNode(RBNode* node) {
+        while (node->left != NIL_NODE)
+            node = node->left;
+        return node;
+    }
+
+    // Delete
+    void fixAfterDelete(RBNode* node) {
+        while (node != treeRoot && !node->isRed) {
+            if (node == node->parent->left) {
+                RBNode* sibling = node->parent->right;
+                if (sibling->isRed) {
+                    sibling->isRed = false;
+                    node->parent->isRed = true;
+                    rotateLeft(node->parent);
+                    sibling = node->parent->right;
+                }
+                if (!sibling->left->isRed && !sibling->right->isRed) {
+                    sibling->isRed = true;
+                    node = node->parent;
+                } else {
+                    if (!sibling->right->isRed) {
+                        sibling->left->isRed = false;
+                        sibling->isRed = true;
+                        rotateRight(sibling);
+                        sibling = node->parent->right;
+                    }
+                    sibling->isRed = node->parent->isRed;
+                    node->parent->isRed = false;
+                    sibling->right->isRed = false;
+                    rotateLeft(node->parent);
+                    node = treeRoot;
+                }
+            } else {
+                RBNode* sibling = node->parent->left;
+                if (sibling->isRed) {
+                    sibling->isRed = false;
+                    node->parent->isRed = true;
+                    rotateRight(node->parent);
+                    sibling = node->parent->left;
+                }
+                if (!sibling->left->isRed && !sibling->right->isRed) {
+                    sibling->isRed = true;
+                    node = node->parent;
+                } else {
+                    if (!sibling->left->isRed) {
+                        sibling->right->isRed = false;
+                        sibling->isRed = true;
+                        rotateLeft(sibling);
+                        sibling = node->parent->left;
+                    }
+                    sibling->isRed = node->parent->isRed;
+                    node->parent->isRed = false;
+                    sibling->left->isRed = false;
+                    rotateRight(node->parent);
+                    node = treeRoot;
+                }
+            }
+        }
+        node->isRed = false;
+    }
 
 public:
     ConcreteAuctionTree() {
-        // TODO: Initialize your Red-Black Tree
+        NIL_NODE = new RBNode(-1, -1);
+        NIL_NODE->isRed = false;
+        NIL_NODE->left = NIL_NODE->right = NIL_NODE->parent = NIL_NODE;
+        treeRoot = NIL_NODE;
     }
 
+    // insertitem function
     void insertItem(int itemID, int price) override {
-        // TODO: Implement Red-Black Tree insertion
-        // Remember to maintain RB-Tree properties with rotations and recoloring
+        RBNode* newNode = new RBNode(itemID, price);
+        newNode->left = newNode->right = newNode->parent = NIL_NODE;
+
+        RBNode* parentNode = NIL_NODE;
+        RBNode* current = treeRoot;
+
+        while (current != NIL_NODE) {
+            parentNode = current;
+            if (price < current->cost ||
+               (price == current->cost && itemID < current->id))
+                current = current->left;
+            else
+                current = current->right;
+        }
+
+        newNode->parent = parentNode;
+        if (parentNode == NIL_NODE)
+            treeRoot = newNode;
+        else if (price < parentNode->cost ||
+                (price == parentNode->cost && itemID < parentNode->id))
+            parentNode->left = newNode;
+        else
+            parentNode->right = newNode;
+
+        fixAfterInsert(newNode);
     }
 
     void deleteItem(int itemID) override {
-        // TODO: Implement Red-Black Tree deletion
-        // This is complex - handle all cases carefully
+        RBNode* target = findNodeByID(treeRoot, itemID);
+        if (!target) return;
+
+        RBNode* nodeToDelete = target;
+        RBNode* fixNode;
+        bool wasRed = nodeToDelete->isRed;
+
+        if (target->left == NIL_NODE) {
+            fixNode = target->right;
+            replaceNode(target, target->right);
+        } else if (target->right == NIL_NODE) {
+            fixNode = target->left;
+            replaceNode(target, target->left);
+        } else {
+            nodeToDelete = smallestNode(target->right);
+            wasRed = nodeToDelete->isRed;
+            fixNode = nodeToDelete->right;
+
+            if (nodeToDelete->parent == target)
+                fixNode->parent = nodeToDelete;
+            else {
+                replaceNode(nodeToDelete, nodeToDelete->right);
+                nodeToDelete->right = target->right;
+                nodeToDelete->right->parent = nodeToDelete;
+            }
+
+            replaceNode(target, nodeToDelete);
+            nodeToDelete->left = target->left;
+            nodeToDelete->left->parent = nodeToDelete;
+            nodeToDelete->isRed = target->isRed;
+        }
+
+        delete target;
+        if (!wasRed)
+            fixAfterDelete(fixNode);
     }
 };
 
@@ -497,11 +722,33 @@ int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
     return (int)diff;
 }
 
-int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& items) {
-    // TODO: Implement 0/1 Knapsack using DP
-    // items = {weight, value} pairs
-    // Return maximum value achievable within capacity
-    return 0;
+int InventorySystem::maximizeCarryValue(int capacity,vector<pair<int, int>>& items) {
+    int n = items.size();
+    if (n == 0 || capacity == 0) return 0;
+
+    vector<vector<int>> dp(n, vector<int>(capacity + 1, 0));
+
+
+    for (int w = 0; w <= capacity; w++) {
+        if (items[0].first <= w)
+            dp[0][w] = items[0].second;
+    }
+
+    for (int i = 1; i < n; i++) {
+        int weight = items[i].first;
+        int value  = items[i].second;
+
+        for (int w = 1; w <= capacity; w++) {
+            int take = 0;
+            if (weight <= w)
+                take = value + dp[i - 1][w - weight];
+
+            int skip = dp[i - 1][w];
+            dp[i][w] = max(take, skip);
+        }
+    }
+
+    return dp[n - 1][capacity];
 }
 
 /// STRING DECODING USING DYNAMIC PROGRAMMING
