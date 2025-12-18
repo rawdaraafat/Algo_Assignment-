@@ -133,6 +133,7 @@ private:
     SkipListNode* head;    // Head node of the skip list (sentinel node)
     int maxLevel;          // Maximum allowed level in the skip list
     float probability;     // Probability for random level generation (typically 0.5)
+    int currentMaxLevel;   // Tracks the current top level in the skip list (for efficiency)
 
     /// Simple random number generator for determining node levels
     /// Returns: A random level between 0 and maxLevel-1
@@ -179,6 +180,7 @@ public:
     ConcreteLeaderboard() {
         maxLevel = 16;            // Maximum of 16 levels (can be adjusted based on expected size)
         probability = 0.5;        // 50% chance to go to next level
+        currentMaxLevel = 0;      // Initially, top level is 0
         // Create head sentinel node with minimum possible values
         // INT_MIN ensures it's always first in the list
         head = new SkipListNode(-1, INT_MIN, maxLevel);
@@ -198,6 +200,31 @@ public:
         }
 
         delete head;  // Finally delete the head sentinel node
+    }
+
+    /// Search by score - O(log n) average
+    /// Returns playerID of first player with given score (lowest ID), or -1 if not found
+    int searchByScore(int score) {
+        SkipListNode* current = head;
+        SkipListNode* candidate = nullptr;  // Keep track of lowest ID with exact score
+
+        for (int i = currentMaxLevel; i >= 0; i--) {
+            while (current->forward[i] != nullptr &&
+                   current->forward[i]->score >= score) {
+                if (current->forward[i]->score == score) {
+                    // Found a node with exact score
+                    if (candidate == nullptr || current->forward[i]->playerID < candidate->playerID) {
+                        candidate = current->forward[i];  // Track node with lowest ID
+                    }
+                }
+                current = current->forward[i];
+            }
+        }
+
+        // Also check level 0 in case candidate is not updated
+        if (candidate != nullptr) return candidate->playerID;
+
+        return -1;
     }
 
     /// Adds or updates a player's score in the leaderboard
@@ -242,7 +269,7 @@ public:
         current = head;  // Start search from head
 
         // Traverse from highest level down to level 0
-        for (int i = maxLevel; i >= 0; i--) {
+        for (int i = currentMaxLevel; i >= 0; i--) {
             // Move forward while:
             // 1. There's a next node at this level, AND
             // 2. newNode should NOT come before the next node (based on ordering rules)
@@ -262,7 +289,8 @@ public:
             newNode->forward[i] = update[i]->forward[i];  // Step 1
             update[i]->forward[i] = newNode;              // Step 2
         }
-        // For levels > nodeLevel, newNode doesn't exist, so no updates needed
+        // Update currentMaxLevel if new node introduces a higher level
+        if (nodeLevel > currentMaxLevel) currentMaxLevel = nodeLevel;
     }
 
     /// Removes a player from the leaderboard
@@ -293,7 +321,7 @@ public:
         current = head;  // Start search from head
 
         // Traverse from highest level down to level 0
-        for (int i = maxLevel; i >= 0; i--) {
+        for (int i = currentMaxLevel; i >= 0; i--) {
             // Move forward while:
             // 1. There's a next node at this level, AND
             // 2. Next node is not the one we're deleting, AND
@@ -307,15 +335,7 @@ public:
             update[i] = current;
         }
 
-        /// Step 3: Verify we actually found the right node
-        /// This is a sanity check - current->forward[0] should be nodeToDelete
-        if (current->forward[0] != nodeToDelete) {
-            // This shouldn't happen if our linear scan was correct
-            // Could indicate a bug in the update[] finding logic
-            return;
-        }
-
-        /// Step 4: Remove node from skip list at all levels where it exists
+        /// Step 3: Remove node from skip list at all levels where it exists
         /// For each level from 0 to nodeToDelete->level:
         ///   1. Check if update[i] actually points to nodeToDelete
         ///   2. If yes, make update[i] point to nodeToDelete->forward[i]
@@ -329,6 +349,11 @@ public:
             }
             // Bypass nodeToDelete at this level
             update[i]->forward[i] = nodeToDelete->forward[i];
+        }
+
+        // Step 4: Adjust currentMaxLevel if necessary
+        while (currentMaxLevel > 0 && head->forward[currentMaxLevel] == nullptr) {
+            currentMaxLevel--;  // Reduce top level if empty
         }
 
         // Step 5: Free the memory allocated for the deleted node
@@ -359,7 +384,7 @@ public:
     /// Shows each level from highest to lowest with all nodes at that level
     void printList() {
         // Print from highest level down to level 0
-        for (int i = maxLevel; i >= 0; i--) {
+        for (int i = currentMaxLevel; i >= 0; i--) {
             cout << "Level " << i << ": ";
             SkipListNode* current = head->forward[i];  // Start from first node at this level
 
@@ -372,6 +397,7 @@ public:
         }
     }
 };
+
 
 // --- 3. AuctionTree (Red-Black Tree) ---
 
